@@ -1,0 +1,2377 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>새마을금고 수신업무 케이스 스터디</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
+<style>
+:root{
+  --bg-white:#FFFFFF;
+  --bg-gray-50:#F9FAFB;
+  --bg-gray-100:#F2F4F6;
+  --text-primary:#191F28;
+  --text-secondary:#4E5968;
+  --text-tertiary:#8B95A1;
+  --border-default:#E5E8EB;
+  --blue-primary:#3182F6;
+  --blue-dark:#1B64DA;
+  --blue-soft:#EBF4FF;
+  --dark-accent:#202632;
+  --red-soft:#FFF1F0;
+  --red-strong:#F04452;
+  --green-soft:#E8FAF0;
+  --green-strong:#0AC282;
+  --amber-soft:#FFF8E1;
+  --amber-strong:#F5A623;
+  --radius-sm:8px;
+  --radius-md:12px;
+  --radius-lg:20px;
+  --shadow-card:0 2px 8px rgba(25,31,40,0.06), 0 1px 2px rgba(25,31,40,0.04);
+  --shadow-float:0 12px 32px rgba(25,31,40,0.12);
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+html,body{
+  font-family:'Pretendard',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+  background:#0E1116;
+  color:var(--text-primary);
+  -webkit-font-smoothing:antialiased;
+  overscroll-behavior:none;
+  width:100%;
+  height:100%;
+  overflow:hidden;
+}
+/* 16:9 발표 무대 (letterbox 중앙 배치) */
+#stage{
+  position:fixed;
+  inset:0;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  padding:0;
+}
+#app{
+  position:relative;
+  width:min(100vw, calc(100vh * 16 / 9));
+  height:min(100vh, calc(100vw * 9 / 16));
+  aspect-ratio:16 / 9;
+  overflow:hidden;
+  background:var(--bg-gray-50);
+  box-shadow:0 0 60px rgba(0,0,0,0.5);
+}
+.slide{
+  position:absolute;
+  inset:0;
+  display:flex;
+  flex-direction:column;
+  padding:0;
+  opacity:0;
+  visibility:hidden;
+  pointer-events:none;
+  transform:translateY(40px) scale(0.94);
+  transition:opacity .5s cubic-bezier(.22,.61,.36,1), transform .55s cubic-bezier(.22,.61,.36,1);
+  overflow-y:auto;
+  background:var(--bg-gray-50);
+  perspective:1400px;
+}
+.slide.active{
+  opacity:1;
+  visibility:visible;
+  pointer-events:auto;
+  transform:translateY(0) scale(1);
+}
+.slide.prev{
+  transform:translateY(-28px) scale(0.94);
+}
+.slide-inner{
+  max-width:none;
+  margin:0;
+  width:100%;
+  padding:52px 84px 28px;
+  flex:1;
+}
+.slide-inner.vcenter{
+  display:flex;flex-direction:column;justify-content:center;
+}
+.slide.center-content{justify-content:center;padding-bottom:76px;}
+/* 상단 진행바 */
+.progress-wrap{
+  position:absolute;
+  top:0;left:0;right:0;
+  height:6px;
+  background:var(--bg-gray-100);
+  z-index:50;
+}
+.progress-bar{
+  height:100%;
+  background:linear-gradient(90deg,var(--blue-primary),var(--blue-dark));
+  width:0%;
+  transition:width .5s cubic-bezier(.22,.61,.36,1);
+  border-radius:0 4px 4px 0;
+  box-shadow:0 0 12px rgba(49,130,246,0.6);
+}
+/* 하단 네비게이션 */
+.nav-bar{
+  position:absolute;
+  bottom:0;left:0;right:0;
+  background:rgba(255,255,255,0.92);
+  backdrop-filter:blur(12px);
+  border-top:1px solid var(--border-default);
+  padding:12px 22px;
+  display:flex;
+  align-items:center;
+  gap:12px;
+  z-index:50;
+}
+.nav-btn{
+  flex:0 0 auto;
+  width:52px;height:52px;
+  border-radius:50%;
+  border:none;
+  background:var(--bg-gray-100);
+  color:var(--text-primary);
+  font-size:24px;
+  display:flex;align-items:center;justify-content:center;
+  cursor:pointer;
+  transition:transform .15s ease, background .15s ease;
+}
+.nav-btn:active{transform:scale(0.9);}
+.nav-btn.primary{
+  background:var(--blue-primary);
+  color:#fff;
+}
+.nav-btn:disabled{opacity:0.35;cursor:default;}
+.nav-mid{
+  flex:1;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  gap:2px;
+  cursor:pointer;
+}
+.nav-counter{
+  font-size:16px;
+  font-weight:600;
+  color:var(--text-secondary);
+}
+.nav-section-name{
+  font-size:14px;
+  color:var(--text-tertiary);
+  max-width:320px;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+}
+/* 목차 오버레이 */
+.toc-overlay{
+  position:absolute;
+  inset:0;
+  background:rgba(25,31,40,0.55);
+  z-index:80;
+  display:flex;
+  align-items:flex-end;
+  opacity:0;
+  pointer-events:none;
+  transition:opacity .3s ease;
+}
+.toc-overlay.show{opacity:1;pointer-events:auto;}
+.toc-sheet{
+  background:var(--bg-white);
+  width:100%;
+  max-height:82%;
+  border-radius:24px 24px 0 0;
+  padding:20px 24px 24px;
+  overflow-y:auto;
+  transform:translateY(100%);
+  transition:transform .35s cubic-bezier(.22,.61,.36,1);
+}
+#tocList{
+  display:grid;
+  grid-template-columns:repeat(3, 1fr);
+  gap:2px 14px;
+}
+.toc-overlay.show .toc-sheet{transform:translateY(0);}
+.toc-handle{
+  width:40px;height:4px;background:var(--border-default);
+  border-radius:4px;margin:0 auto 16px;
+}
+.toc-title{font-size:22px;font-weight:700;margin-bottom:16px;grid-column:1/-1;}
+.toc-item{
+  display:flex;align-items:center;gap:10px;
+  padding:9px 10px;
+  border-radius:10px;
+  cursor:pointer;
+  transition:background .15s;
+}
+.toc-item:active{background:var(--bg-gray-100);}
+.toc-item.current{background:var(--blue-soft);}
+.toc-num{
+  width:26px;height:26px;border-radius:50%;
+  background:var(--bg-gray-100);
+  display:flex;align-items:center;justify-content:center;
+  font-size:12px;font-weight:700;color:var(--text-secondary);
+  flex:0 0 auto;
+}
+.toc-item.current .toc-num{background:var(--blue-primary);color:#fff;}
+.toc-label{font-size:14px;font-weight:500;color:var(--text-primary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+
+/* 공통 타이포 */
+.eyebrow{
+  display:inline-flex;align-items:center;gap:8px;
+  font-size:22px;font-weight:800;color:var(--blue-primary);
+  background:var(--blue-soft);
+  padding:12px 24px;border-radius:30px;
+  margin-bottom:24px;
+}
+.h1{font-size:64px;font-weight:800;line-height:1.22;color:var(--text-primary);letter-spacing:-1px;}
+.h2{font-size:42px;font-weight:700;line-height:1.35;color:var(--text-primary);letter-spacing:-0.5px;}
+.h3{font-size:32px;font-weight:700;line-height:1.4;color:var(--text-primary);}
+.body-text{font-size:28px;line-height:1.6;color:var(--text-secondary);}
+.small-text{font-size:22px;line-height:1.55;color:var(--text-tertiary);}
+.accent{color:var(--blue-primary);font-weight:800;}
+
+.card{
+  background:var(--bg-white);
+  border-radius:28px;
+  padding:36px 40px;
+  box-shadow:var(--shadow-card);
+  margin-bottom:22px;
+}
+.card-flat{
+  background:var(--bg-gray-100);
+  border-radius:28px;
+  padding:30px 34px;
+  margin-bottom:18px;
+}
+.divider{height:1px;background:var(--border-default);margin:18px 0;}
+
+/* 배지 */
+.badge{display:inline-flex;align-items:center;gap:6px;padding:10px 20px;border-radius:14px;font-size:20px;font-weight:800;}
+.badge-blue{background:var(--blue-soft);color:var(--blue-primary);}
+.badge-red{background:var(--red-soft);color:var(--red-strong);}
+.badge-green{background:var(--green-soft);color:var(--green-strong);}
+.badge-amber{background:var(--amber-soft);color:var(--amber-strong);}
+.badge-gray{background:var(--bg-gray-100);color:var(--text-secondary);}
+
+/* 등장 애니메이션 (slide 진입시 stagger) */
+.reveal{opacity:0;transform:translateY(26px) scale(0.96);transition:opacity .55s cubic-bezier(.22,.61,.36,1), transform .55s cubic-bezier(.22,.61,.36,1);}
+.slide.active .reveal{opacity:1;transform:translateY(0) scale(1);}
+.slide.active .r1{transition-delay:.04s;}
+.slide.active .r2{transition-delay:.10s;}
+.slide.active .r3{transition-delay:.16s;}
+.slide.active .r4{transition-delay:.22s;}
+.slide.active .r5{transition-delay:.28s;}
+.slide.active .r6{transition-delay:.34s;}
+.slide.active .r7{transition-delay:.40s;}
+.slide.active .r8{transition-delay:.46s;}
+
+/* 펀치 카운터 */
+@keyframes countPop{
+  0%{transform:scale(0.6);opacity:0;}
+  60%{transform:scale(1.08);opacity:1;}
+  100%{transform:scale(1);opacity:1;}
+}
+.pop{animation:countPop .5s cubic-bezier(.34,1.56,.64,1) both;}
+
+/* 펄스 (위험/경고) */
+@keyframes pulseRing{
+  0%{box-shadow:0 0 0 0 rgba(240,68,82,0.35);}
+  70%{box-shadow:0 0 0 14px rgba(240,68,82,0);}
+  100%{box-shadow:0 0 0 0 rgba(240,68,82,0);}
+}
+.pulse{animation:pulseRing 1.8s ease-out infinite;}
+
+@keyframes pulseRingBlue{
+  0%{box-shadow:0 0 0 0 rgba(49,130,246,0.35);}
+  70%{box-shadow:0 0 0 14px rgba(49,130,246,0);}
+  100%{box-shadow:0 0 0 0 rgba(49,130,246,0);}
+}
+.pulse-blue{animation:pulseRingBlue 1.8s ease-out infinite;}
+
+@keyframes float{
+  0%,100%{transform:translateY(0) rotate(0deg);}
+  50%{transform:translateY(-14px) rotate(4deg);}
+}
+.float{animation:float 4s ease-in-out infinite;}
+
+@keyframes shake{
+  0%,100%{transform:translateX(0);}
+  20%{transform:translateX(-4px);}
+  40%{transform:translateX(4px);}
+  60%{transform:translateX(-3px);}
+  80%{transform:translateX(3px);}
+}
+.shake-once{animation:shake .5s ease;}
+
+@keyframes spin{to{transform:rotate(360deg);}}
+.spin-slow{animation:spin 6s linear infinite;}
+
+/* 타임라인 */
+.timeline{position:relative;padding-left:42px;}
+.timeline::before{
+  content:'';position:absolute;left:9px;top:4px;bottom:4px;width:2px;
+  background:var(--border-default);
+}
+.tl-item{position:relative;margin-bottom:22px;}
+.tl-dot{
+  position:absolute;left:-28px;top:2px;
+  width:20px;height:20px;border-radius:50%;
+  background:var(--blue-primary);
+  border:3px solid var(--bg-white);
+  box-shadow:0 0 0 2px var(--blue-primary);
+}
+
+/* OX 퀴즈 버튼 */
+.ox-row{display:flex;gap:32px;margin:36px auto;max-width:900px;}
+.ox-btn{
+  flex:1;
+  padding:48px 0;
+  border-radius:32px;
+  border:3px solid var(--border-default);
+  background:var(--bg-white);
+  font-size:72px;font-weight:800;
+  cursor:pointer;
+  transition:all .18s cubic-bezier(.34,1.56,.64,1);
+  color:var(--text-tertiary);
+  box-shadow:var(--shadow-card);
+}
+.ox-btn.o-btn:hover{border-color:var(--blue-primary);transform:translateY(-4px);}
+.ox-btn.x-btn:hover{border-color:var(--red-strong);transform:translateY(-4px);}
+.ox-btn.selected-o{background:var(--blue-soft);border-color:var(--blue-primary);color:var(--blue-primary);animation:btnBounce .45s cubic-bezier(.34,1.56,.64,1);}
+.ox-btn.selected-x{background:var(--red-soft);border-color:var(--red-strong);color:var(--red-strong);animation:btnBounce .45s cubic-bezier(.34,1.56,.64,1);}
+@keyframes btnBounce{
+  0%{transform:scale(1);}
+  40%{transform:scale(1.12);}
+  100%{transform:scale(1.04);}
+}
+.ox-btn.correct-flash{animation:correctFlash .6s ease;}
+.ox-btn.wrong-flash{animation:wrongFlash .5s ease;}
+@keyframes correctFlash{
+  0%{box-shadow:0 0 0 0 rgba(10,194,130,0.5);}
+  100%{box-shadow:0 0 0 18px rgba(10,194,130,0);}
+}
+@keyframes wrongFlash{
+  0%,100%{transform:translateX(0) scale(1.04);}
+  25%{transform:translateX(-6px) scale(1.04);}
+  75%{transform:translateX(6px) scale(1.04);}
+}
+.quiz-feedback{
+  margin:20px auto 0;max-width:1100px;
+  padding:26px 32px;border-radius:24px;
+  font-size:25px;line-height:1.55;font-weight:600;
+  display:none;
+}
+.quiz-feedback.show{display:block;}
+.quiz-feedback.correct{background:var(--green-soft);color:#0a8a5f;}
+.quiz-feedback.wrong{background:var(--red-soft);color:#c8333e;}
+
+/* 토론 질문 카드 */
+.discuss-card{
+  background:linear-gradient(135deg,#EBF4FF 0%,#F5F9FF 100%);
+  border:2px dashed var(--blue-primary);
+  border-radius:28px;
+  padding:32px 36px;
+  margin-bottom:20px;
+  position:relative;
+}
+.discuss-num{
+  width:46px;height:46px;border-radius:50%;
+  background:var(--blue-primary);color:#fff;
+  font-size:22px;font-weight:700;
+  display:flex;align-items:center;justify-content:center;
+  flex:0 0 auto;
+}
+.discuss-q{display:flex;gap:18px;align-items:flex-start;font-size:28px;font-weight:700;color:var(--text-primary);line-height:1.45;}
+
+/* 비교 테이블형 */
+.cmp-table{width:100%;border-collapse:separate;border-spacing:0;}
+.cmp-table th{
+  font-size:22px;color:var(--text-tertiary);font-weight:800;
+  padding:18px 16px;text-align:left;border-bottom:3px solid var(--border-default);
+}
+.cmp-table td{
+  font-size:23px;padding:20px 16px;border-bottom:1px solid var(--border-default);
+  color:var(--text-primary);
+}
+.cmp-table tr:last-child td{border-bottom:none;}
+
+/* 스토리 말풍선 */
+.speech-bubble{
+  background:var(--bg-white);
+  border-radius:28px;
+  padding:32px 36px;
+  position:relative;
+  box-shadow:var(--shadow-card);
+  font-size:28px;
+  line-height:1.55;
+  color:var(--text-primary);
+  font-weight:600;
+}
+.speech-bubble::before{
+  content:'';
+  position:absolute;
+  left:28px;bottom:-9px;
+  width:0;height:0;
+  border-left:10px solid transparent;
+  border-right:10px solid transparent;
+  border-top:10px solid var(--bg-white);
+}
+.speaker-tag{
+  display:flex;align-items:center;gap:8px;margin-bottom:8px;
+}
+.speaker-avatar{
+  width:58px;height:58px;border-radius:50%;
+  display:flex;align-items:center;justify-content:center;
+  font-size:28px;
+  background:var(--bg-gray-100);
+}
+.speaker-name{font-size:20px;font-weight:800;color:var(--text-secondary);}
+
+/* 체크리스트 */
+.check-item{
+  display:flex;align-items:flex-start;gap:20px;
+  padding:18px 0;
+  border-bottom:1px solid var(--border-default);
+}
+.check-item:last-child{border-bottom:none;}
+.check-num{
+  width:40px;height:40px;border-radius:50%;
+  background:var(--blue-soft);color:var(--blue-primary);
+  font-size:20px;font-weight:800;
+  display:flex;align-items:center;justify-content:center;
+  flex:0 0 auto;margin-top:1px;
+}
+.check-text{font-size:26px;color:var(--text-primary);line-height:1.5;font-weight:500;}
+
+/* 큰 인용 / 핵심 한줄 */
+.key-line{
+  background:var(--dark-accent);
+  color:#fff;
+  border-radius:28px;
+  padding:40px 44px;
+  font-size:30px;
+  font-weight:700;
+  line-height:1.55;
+  position:relative;
+  overflow:hidden;
+}
+.key-line .quote-mark{
+  position:absolute;
+  right:18px;top:6px;
+  font-size:80px;
+  font-weight:800;
+  color:rgba(255,255,255,0.08);
+  font-family:Georgia,serif;
+}
+.key-line .label{
+  display:inline-block;font-size:19px;font-weight:800;color:#9DC4FF;
+  margin-bottom:12px;letter-spacing:0.5px;
+}
+
+/* 위험 경고 박스 */
+.warn-box{
+  background:var(--red-soft);
+  border-left:6px solid var(--red-strong);
+  border-radius:20px;
+  padding:26px 30px;
+  margin-bottom:18px;
+}
+.warn-title{display:flex;align-items:center;gap:10px;font-size:25px;font-weight:800;color:var(--red-strong);margin-bottom:8px;}
+.ok-box{
+  background:var(--green-soft);
+  border-left:6px solid var(--green-strong);
+  border-radius:20px;
+  padding:26px 30px;
+  margin-bottom:18px;
+}
+.ok-title{display:flex;align-items:center;gap:10px;font-size:25px;font-weight:800;color:#0a8a5f;margin-bottom:8px;}
+
+/* 케이스 표지 (대형 섹션 슬라이드) */
+.case-cover{
+  height:100%;
+  display:flex;
+  flex-direction:column;
+  justify-content:center;
+  align-items:center;
+  text-align:center;
+  padding:48px 56px;
+  position:relative;
+}
+.case-cover .case-num-huge{
+  font-size:220px;
+  font-weight:800;
+  background:linear-gradient(135deg,var(--blue-primary),var(--blue-dark));
+  -webkit-background-clip:text;
+  background-clip:text;
+  -webkit-text-fill-color:transparent;
+  line-height:1;
+  margin-bottom:8px;
+}
+.case-cover .case-tag{
+  font-size:26px;font-weight:800;color:var(--blue-primary);
+  letter-spacing:4px;margin-bottom:28px;
+}
+.case-cover .case-title{
+  font-size:76px;font-weight:800;line-height:1.28;color:var(--text-primary);margin-bottom:28px;
+}
+.case-cover .case-meta{
+  font-size:22px;color:var(--text-tertiary);
+  background:var(--bg-white);
+  padding:18px 34px;border-radius:30px;
+  box-shadow:var(--shadow-card);
+}
+.bg-deco{
+  position:absolute;border-radius:50%;
+  background:radial-gradient(circle,rgba(49,130,246,0.10),transparent 70%);
+}
+
+/* 워드 카드 (용어 정리) */
+.term-card{
+  background:var(--bg-white);
+  border-radius:28px;
+  padding:30px 34px;
+  margin-bottom:20px;
+  box-shadow:var(--shadow-card);
+  display:flex;
+  gap:24px;
+  align-items:flex-start;
+}
+.term-icon{
+  width:68px;height:68px;border-radius:18px;
+  background:var(--blue-soft);
+  display:flex;align-items:center;justify-content:center;
+  font-size:34px;flex:0 0 auto;
+}
+.term-name{font-size:28px;font-weight:800;color:var(--text-primary);margin-bottom:7px;}
+.term-desc{font-size:23px;color:var(--text-secondary);line-height:1.5;}
+
+/* 선택지 카드(선택1/2/3) */
+.option-grid{display:flex;flex-direction:column;gap:10px;}
+.option-card{
+  background:var(--bg-white);
+  border-radius:20px;
+  padding:26px 30px;
+  border:2px solid var(--border-default);
+  display:flex;gap:20px;align-items:flex-start;font-size:25px;font-weight:500;
+}
+.option-card.best{border-color:var(--blue-primary);background:var(--blue-soft);}
+.option-num{
+  width:42px;height:42px;border-radius:12px;
+  background:var(--bg-gray-100);color:var(--text-secondary);
+  font-size:20px;font-weight:800;
+  display:flex;align-items:center;justify-content:center;flex:0 0 auto;
+}
+.option-card.best .option-num{background:var(--blue-primary);color:#fff;}
+
+/* 프로그레스 도트 (케이스 진행 인디케이터, 상단) */
+.case-progress-dots{display:flex;gap:6px;justify-content:center;margin-top:24px;}
+.case-progress-dots span{
+  width:8px;height:8px;border-radius:50%;background:var(--border-default);
+}
+.case-progress-dots span.done{background:var(--blue-primary);}
+
+/* 인터랙티브 토글 (정답 보기) */
+.reveal-btn{
+  margin-top:22px;
+  padding:22px 36px;
+  border-radius:20px;
+  border:none;
+  background:var(--dark-accent);
+  color:#fff;
+  font-size:24px;font-weight:700;
+  cursor:pointer;
+  display:inline-flex;align-items:center;gap:6px;
+  transition:transform .15s;
+}
+.reveal-btn:active{transform:scale(0.96);}
+.answer-panel{
+  display:none;
+  margin-top:12px;
+  animation:slideDown .35s cubic-bezier(.22,.61,.36,1) both;
+}
+.answer-panel.show{display:block;}
+@keyframes slideDown{
+  from{opacity:0;transform:translateY(-8px);max-height:0;}
+  to{opacity:1;transform:translateY(0);}
+}
+
+/* confetti dots for finale */
+.confetti{
+  position:absolute;width:12px;height:12px;border-radius:3px;
+  animation:confettiFall 1.6s ease-in forwards;
+  opacity:0.95;
+  z-index:60;
+  top:-20px;
+}
+@keyframes confettiFall{
+  0%{transform:translateY(0) rotate(0deg);opacity:1;}
+  100%{transform:translateY(540px) rotate(420deg);opacity:0;}
+}
+
+/* 스와이프 힌트 */
+.swipe-hint{
+  position:absolute;
+  bottom:80px;right:24px;
+  font-size:13px;color:var(--text-tertiary);
+  display:flex;align-items:center;gap:4px;
+  opacity:0.8;
+  z-index:40;
+  pointer-events:none;
+  animation:fadeOutHint 4s forwards;
+}
+@keyframes fadeOutHint{0%,70%{opacity:0.8;}100%{opacity:0;}}
+
+/* 표 스크롤 wrap */
+.table-scroll{overflow-x:auto;-webkit-overflow-scrolling:touch;}
+
+::-webkit-scrollbar{width:0px;height:0px;}
+</style>
+</head>
+<body>
+
+<div id="stage">
+  <div id="app">
+    <div class="progress-wrap"><div class="progress-bar" id="progressBar"></div></div>
+
+    <div class="nav-bar">
+      <button class="nav-btn" id="btnPrev" aria-label="이전">‹</button>
+      <div class="nav-mid" id="navMid">
+        <div class="nav-counter" id="navCounter">1 / 52</div>
+        <div class="nav-section-name" id="navSection">표지</div>
+      </div>
+      <button class="nav-btn primary" id="btnNext" aria-label="다음">›</button>
+    </div>
+
+    <div class="toc-overlay" id="tocOverlay">
+      <div class="toc-sheet" id="tocSheet">
+        <div class="toc-handle"></div>
+        <div class="toc-title">📑 목차로 이동</div>
+        <div id="tocList"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script id="slidesData" type="application/json"></script>
+<script>
+// ===== OX 퀴즈 25문항 (케이스별 매핑) =====
+// case: 1~5 — 해당 케이스 표지 직후에 배치됨
+const OX_QUIZ = [
+  // ── 케이스 1: 대리인 / 미성년 / 위임장 ──
+  {c:1, q:"통장과 도장을 가지고 온 사람이면 대리인 권한을 가진 것으로 본다.", a:false, exp:"통장·도장 소지만으로는 대리 권한이 인정되지 않습니다. 위임장과 인감증명서가 원칙입니다. (제53조의2)"},
+  {c:1, q:"미성년 자녀의 예금은 부모가 법정대리인으로서 대리할 수 있다.", a:true, exp:"미성년자는 법정대리인(부모)의 동의 또는 대리행위로 예금거래가 가능합니다. (제8조)"},
+  {c:1, q:"부모가 이혼한 경우, 친권자로 지정된 부모만 미성년 자녀의 예금을 대리할 수 있다.", a:true, exp:"가족관계증명서에 기재된 지정 친권자만 대리 가능합니다."},
+  {c:1, q:"전화로 본인 의사를 확인하면 1일 100만원 이하 범위에서 편의취급이 가능하다.", a:true, exp:"제39조: 부득이한 사정 시 1일 100만원 이하, 1일 2회 범위 내 편의취급 가능합니다."},
+  // ── 케이스 2: 지급제한 / 현금지급 / 보이스피싱 / 사고신고 ──
+  {c:2, q:"인감이 다소 다르더라도 신분증이 일치하면 담당자가 바로 지급해도 된다.", a:false, exp:"인감 불일치는 지급 보류가 원칙이며, 책임자 판단을 거쳐야 합니다. (제36조)"},
+  {c:2, q:"현금지급 시 청구금액이 평소 거래에 비해 지나치게 많으면 의심 정황으로 봐야 한다.", a:true, exp:"제37조 7호: 평소 거래에 비추어 과다한 청구금액은 8대 체크리스트 항목입니다."},
+  {c:2, q:"보이스피싱이 의심되면 담당자 혼자 판단해서 처리 여부를 결정해도 무방하다.", a:false, exp:"의심스러운 경우 즉시 책임자에게 보고해야 합니다."},
+  {c:2, q:"통장과 도장을 분실한 경우 사고신고서 접수와 별개로 출금 정지 등록은 불필요하다.", a:false, exp:"분실 시 사고신고서 접수 및 전산 출금정지 등록을 함께 권유해야 합니다. (제95조)"},
+  // ── 케이스 3: 질권 / 이해상반 / 질권해지 ──
+  {c:3, q:"예금에 질권을 설정하면 질권자의 동의 없이는 예금주에게 원리금을 지급할 수 없다.", a:true, exp:"제79조: 질권설정 해지통지서 접수 전에는 지급 불가가 원칙입니다."},
+  {c:3, q:"질권설정 예금이라도 특약이 있으면 해지 전에 이자만 지급할 수 있는 경우가 있다.", a:true, exp:"제79조 단서: 특약 또는 채권보전에 지장 없는 경우 이자는 지급 가능합니다."},
+  {c:3, q:"엄마가 자신의 빚을 갚기 위해 미성년 자녀의 예금을 담보로 제공하는 것은 이해상반행위에 해당한다.", a:true, exp:"민법 제921조에 따라 특별대리인 선임이 필요한 이해상반행위입니다."},
+  {c:3, q:"대출금을 모두 상환했다는 영수증만 있으면 질권을 해지하고 예금을 지급할 수 있다.", a:false, exp:"영수증만으로는 부족하며, 질권자가 발행한 질권해지 통지서가 반드시 필요합니다. (제81조)"},
+  // ── 케이스 4: 상속 / 소액특례 / 유증 ──
+  {c:4, q:"예금주가 사망한 사실을 알게 되면 가장 먼저 할 일은 즉시 출금정지 등록이다.", a:true, exp:"제111조 ①: 사망 사실을 알았을 때 즉시 전산원장에 출금정지 등록해야 합니다."},
+  {c:4, q:"상속인 중 한 명이 통장과 도장을 가져오면 그 사람이 단독으로 예금 전액을 받을 수 있다.", a:false, exp:"공동상속인의 경우 원칙적으로 상속인 전원의 동의(연서 손해담보부약정서)가 필요합니다."},
+  {c:4, q:"예금 총액이 500만원 이하이면 상속인 1/2 이상이 방문하는 경우 소액상속 간소화 처리가 가능하다.", a:true, exp:"제111조 (2025.08.29 개정): 500만원 이하는 상속인 1/2 이상 내점 시 처리 가능합니다."},
+  {c:4, q:"예금 총액이 300만원 이하이면 상속인 1인만 방문해도 처리할 수 있다.", a:true, exp:"제111조: 300만원 이하는 상속인 1인 방문으로도 처리 가능(손해담보부약정서 필수, 책임자 결재)합니다."},
+  {c:4, q:"특정유증으로 예탁금을 받기로 한 단체는 금융기관에 직접 지급을 요구할 수 있다.", a:false, exp:"특정유증은 법정상속인에게 먼저 귀속되며, 수증자는 상속인에게 유증 이행을 청구해야 합니다."},
+  // ── 케이스 5: 압류 / 추심·전부명령 / 체납처분 / 생계비 ──
+  {c:5, q:"법원으로부터 압류명령이 도착하면 서류 내용을 검토한 후 출금정지 여부를 결정한다.", a:false, exp:"제112조 ③: 법원 명령 도착 시 서류 검토 전에 즉시 출금정지 등록이 원칙입니다."},
+  {c:5, q:"추심명령은 확정증명서가 있어야 효력이 발생한다.", a:false, exp:"추심명령은 즉시 효력이 발생합니다. 확정증명서가 필요한 것은 전부명령입니다."},
+  {c:5, q:"전부명령은 확정증명서가 있어야만 채권자에게 지급할 수 있다.", a:true, exp:"제115조 다목: 전부명령은 확정 후에만 효력이 발생하므로 확정증명서 확인이 필수입니다."},
+  {c:5, q:"민사 가압류와 세무서의 체납처분압류가 경합하면, 가압류가 먼저 걸려 있었다면 가압류가 우선한다.", a:false, exp:"제117조: 체납처분은 시기와 무관하게 민사채권보다 항상 우선합니다."},
+  {c:5, q:"체납처분과 민사집행이 겹칠 때는 법원에 공탁하여 처리하는 것이 원칙이다.", a:false, exp:"민사집행과 체납처분이 겹칠 때는 공탁 절차에 대한 법적 규정이 없어 공탁이 불가능하며, 세무서에 직접 지급합니다."},
+  {c:5, q:"2026년 2월 기준 압류금지 최저생계비 공제 기준액은 250만원이다.", a:true, exp:"민사집행법 시행령 개정으로 2026.02 기준 압류금지 한도는 250만원입니다 (구 기준 185만원과 혼동 주의)."},
+  {c:5, q:"생계비계좌로 개설된 계좌는 잔액 전체가 압류로부터 보호될 수 있다.", a:true, exp:"민사집행법 제246조의2(2026.02.01 신설)에 따라 생계비계좌는 압류 자체가 불가능합니다."},
+  {c:5, q:"법원 서류가 잘못된 명칭으로 와도, 특정성이 인정되면 압류는 유효할 수 있다.", a:true, exp:"계좌가 1개뿐이라 어떤 예금인지 명확히 특정된다면 명칭 불일치에도 압류 유효로 인정될 수 있습니다."},
+];
+
+// 케이스별 OX 슬라이드 묶음을 SLIDES에 삽입하는 헬퍼
+function addCaseQuiz(caseNum){
+  const items = OX_QUIZ.map((it, gi) => ({...it, gi})).filter(it => it.c === caseNum);
+  if(!items.length) return;
+  // 인트로
+  addSlide(`케이스${caseNum} OX 워밍업`, `
+  <div class="slide-inner">
+    <div class="reveal r1 eyebrow">☑️ WARM-UP · CASE ${caseNum}</div>
+    <div class="reveal r2 h1" style="margin-bottom:14px;">먼저 OX로 감 잡기</div>
+    <div class="reveal r3 body-text" style="margin-bottom:18px;">케이스 ${caseNum}을 들어가기 전에 <b class="accent">${items.length}문항</b>을 먼저 풀어봅니다.<br>지금은 정답을 몰라도 괜찮습니다 — 뒤에서 사례로 확인합니다.</div>
+    <div class="reveal r4 key-line">
+      <span class="label">📌 진행 방법</span>
+      각자 O / X를 머릿속으로 정한 뒤 화면을 넘기세요.<br>버튼을 누르면 <b>정답과 간단 해설</b>이 나타납니다.
+    </div>
+  </div>
+  `);
+  // 각 문항
+  items.forEach((item, localIdx) => {
+    addSlide(`케이스${caseNum} OX ${localIdx+1}/${items.length}`, `
+    <div class="slide-inner">
+      <div class="reveal r1" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
+        <span class="badge badge-amber">CASE ${caseNum} · OX ${localIdx+1} / ${items.length}</span>
+      </div>
+      <div class="reveal r2 card" style="padding:28px 24px;">
+        <div class="h2" style="line-height:1.5;">${item.q}</div>
+      </div>
+      <div class="reveal r3 ox-row" id="oxRow-${item.gi}">
+        <button class="ox-btn o-btn" onclick="answerOX(${item.gi}, true)">O</button>
+        <button class="ox-btn x-btn" onclick="answerOX(${item.gi}, false)">X</button>
+      </div>
+      <div class="reveal r4 quiz-feedback" id="oxFeedback-${item.gi}"></div>
+    </div>
+    `);
+  });
+}
+// ===== 새마을금고 수신업무 케이스 스터디 - 슬라이드 데이터 =====
+// 각 슬라이드: { id, section, html }
+const SLIDES = [];
+
+function addSlide(section, html){
+  SLIDES.push({ section, html });
+}
+
+/* ---------- 0. 표지 ---------- */
+addSlide('표지', `
+<div class="case-cover">
+  <div class="bg-deco float" style="width:420px;height:420px;top:-8%;left:-100px;"></div>
+  <div class="bg-deco float" style="width:360px;height:360px;bottom:-10%;right:-90px;animation-delay:1.2s;"></div>
+  <div class="bg-deco float" style="width:160px;height:160px;top:14%;right:8%;animation-delay:0.6s;background:radial-gradient(circle,rgba(10,194,130,0.12),transparent 70%);"></div>
+  <div class="bg-deco float" style="width:120px;height:120px;bottom:18%;left:10%;animation-delay:1.8s;background:radial-gradient(circle,rgba(245,166,35,0.14),transparent 70%);"></div>
+  <div class="reveal r1 case-tag">신입직원 실무 토론 수업</div>
+  <div class="reveal r2 case-title">새마을금고<br>수신업무 케이스 스터디</div>
+  <div class="reveal r3 body-text" style="margin-bottom:22px;">5개 케이스 × 토론 → 해설</div>
+  <div class="reveal r4 case-meta">📘 수신업무방법서 2026.01.30 현행 기준</div>
+</div>
+`);
+
+/* ---------- 1. 오늘 수업의 목표 ---------- */
+addSlide('오늘의 목표', `
+<div class="slide-inner">
+  <div class="reveal r1 eyebrow">🎯 ORIENTATION</div>
+  <div class="reveal r2 h1" style="margin-bottom:20px;">오늘 수업의 목표</div>
+
+  <div class="reveal r3 card" style="display:flex;gap:14px;align-items:flex-start;">
+    <div style="font-size:26px;">🧩</div>
+    <div>
+      <div class="h3" style="margin-bottom:4px;">실무 감각</div>
+      <div class="body-text">창구에서 실제 일어나는 상황을 직접 토론하며 판단력을 키웁니다.</div>
+    </div>
+  </div>
+  <div class="reveal r4 card" style="display:flex;gap:14px;align-items:flex-start;">
+    <div style="font-size:26px;">📖</div>
+    <div>
+      <div class="h3" style="margin-bottom:4px;">규정 이해</div>
+      <div class="body-text">수신업무방법서 조문을 실제 사례와 연결하여 자연스럽게 익힙니다.</div>
+    </div>
+  </div>
+  <div class="reveal r5 card" style="display:flex;gap:14px;align-items:flex-start;">
+    <div style="font-size:26px;">💬</div>
+    <div>
+      <div class="h3" style="margin-bottom:4px;">토론 참여</div>
+      <div class="body-text">정답을 외우는 게 아니라, 왜 그런 원칙이 필요한지 함께 생각합니다.</div>
+    </div>
+  </div>
+  <div class="reveal r6 key-line">
+    <span class="quote-mark">"</span>
+    <span class="label">✅ 오늘의 약속</span><br>
+    수업이 끝나면 창구 담당자로서<br>반드시 알아야 할 <span style="color:#9DC4FF;">핵심 5가지</span>를 기억합니다.
+  </div>
+</div>
+`);
+
+/* ---------- 2. 타임테이블 ---------- */
+addSlide('타임테이블', `
+<div class="slide-inner">
+  <div class="reveal r1 eyebrow">⏱️ TIMETABLE</div>
+  <div class="reveal r2 h1" style="margin-bottom:18px;">2시간 타임테이블</div>
+
+  <div class="reveal r3 timeline">
+    <div class="tl-item"><div class="tl-dot"></div><div class="body-text"><b style="color:var(--text-primary)">오리엔테이션</b> · 창구 담당자의 역할</div></div>
+    <div class="tl-item"><div class="tl-dot"></div><div class="body-text"><b style="color:var(--text-primary)">케이스 1</b> · 대리인이 왔다 <span class="badge badge-amber" style="margin-left:6px;">OX 4</span></div></div>
+    <div class="tl-item"><div class="tl-dot"></div><div class="body-text"><b style="color:var(--text-primary)">케이스 2</b> · 이 지급, 해도 되나요? <span class="badge badge-amber" style="margin-left:6px;">OX 4</span></div></div>
+    <div class="tl-item"><div class="tl-dot"></div><div class="body-text"><b style="color:var(--text-primary)">케이스 3</b> · 예금담보대출과 질권 <span class="badge badge-amber" style="margin-left:6px;">OX 4</span></div></div>
+    <div class="tl-item"><div class="tl-dot"></div><div class="body-text"><b style="color:var(--text-primary)">케이스 4</b> · 예금주가 돌아가셨습니다 <span class="badge badge-amber" style="margin-left:6px;">OX 5</span></div></div>
+    <div class="tl-item"><div class="tl-dot"></div><div class="body-text"><b style="color:var(--text-primary)">케이스 5</b> · 법원 서류가 왔습니다 <span class="badge badge-amber" style="margin-left:6px;">OX 8</span></div></div>
+    <div class="tl-item"><div class="tl-dot" style="background:var(--green-strong);box-shadow:0 0 0 2px var(--green-strong);"></div><div class="body-text">🏁 <b style="color:var(--text-primary)">마무리</b> · 핵심 5가지 + 자기점검</div></div>
+  </div>
+  <div class="reveal r4 card-flat" style="margin-top:16px;display:flex;gap:12px;align-items:flex-start;">
+    <div style="font-size:22px;">☑️</div>
+    <div class="body-text">각 케이스 <b class="accent">시작 전 OX 퀴즈</b>로 먼저 감을 잡고, 곧바로 사례로 정답을 확인합니다. (총 25문항)</div>
+  </div>
+</div>
+`);
+
+/* ---------- 3. 수신사례 인트로 ---------- */
+addSlide('인트로', `
+<div class="slide-inner">
+  <div class="reveal r1 speech-bubble">
+    <div class="speaker-tag"><div class="speaker-avatar">🎤</div><div class="speaker-name">강사</div></div>
+    "예금을 찾으러 온 고객에게 여러분이 해야 할 일이 뭐라고 생각하나요?"
+  </div>
+  <div style="height:14px;"></div>
+  <div class="reveal r2 speech-bubble" style="background:var(--bg-gray-100);">
+    <div class="speaker-tag"><div class="speaker-avatar">🙋</div><div class="speaker-name">예상 답변</div></div>
+    "신분증 확인하고 드리면 되는 거 아닌가요?"
+  </div>
+
+  <div class="reveal r3" style="height:18px;"></div>
+  <div class="reveal r4 card-flat">
+    <div class="body-text">맞습니다. 하지만 이 수업은 그 <b class="accent">'확인'</b>이 생각보다 훨씬 복잡한 상황들을 다룹니다.</div>
+  </div>
+  <div class="reveal r5 key-line">
+    <span class="label">💡 핵심 관점</span>
+    창구 담당자는 단순히 버튼을 누르는 사람이 아닙니다.<br>
+    매 순간 <u>"이 지급, 지금 맞는가?"</u>를 판단해야 합니다.
+  </div>
+</div>
+`);
+
+/* ---------- 4. 위험 2가지 ---------- */
+addSlide('위험 안내', `
+<div class="slide-inner">
+  <div class="reveal r1 eyebrow">⚠️ RISK</div>
+  <div class="reveal r2 h1" style="margin-bottom:18px;">잘못 판단하면<br>생기는 두 가지 위험</div>
+
+  <div class="reveal r3 card pulse" style="border-left:4px solid var(--red-strong);">
+    <div style="font-size:30px;margin-bottom:8px;">🔁</div>
+    <div class="h3" style="color:var(--red-strong);margin-bottom:6px;">이중지급</div>
+    <div class="body-text">권한 없는 사람에게 먼저 줬다가, 진짜 권리자에게 따로 또 줘야 하는 상황이 발생합니다. 금융기관이 손실을 고스란히 떠안게 됩니다.</div>
+  </div>
+  <div class="reveal r4 card" style="border-left:4px solid var(--amber-strong);">
+    <div style="font-size:30px;margin-bottom:8px;">💸</div>
+    <div class="h3" style="color:var(--amber-strong);margin-bottom:6px;">금융사고</div>
+    <div class="body-text">권한 없는 사람에게 예금을 내줘서 발생하는 피해입니다. 담당자 개인도 책임을 질 수 있으며, 금고 전체의 신뢰에 영향을 미칩니다.</div>
+  </div>
+</div>
+`);
+
+/* ---------- 5. 오늘 다루는 5가지 상황 (오버뷰) ---------- */
+addSlide('5가지 상황 개요', `
+<div class="slide-inner">
+  <div class="reveal r1 eyebrow">🗂️ OVERVIEW</div>
+  <div class="reveal r2 h1" style="margin-bottom:18px;">오늘 다루는<br>5가지 상황</div>
+
+  <div class="reveal r3 term-card"><div class="term-icon">👤</div><div><div class="term-name">케이스 1 — 대리인이 왔다</div><div class="term-desc">누가 대신 올 수 있나? 어디까지 확인해야 하나?</div></div></div>
+  <div class="reveal r4 term-card"><div class="term-icon">🤔</div><div><div class="term-name">케이스 2 — 이 지급, 해도 되나요?</div><div class="term-desc">의심스러운 상황에서 어떻게 판단하나?</div></div></div>
+  <div class="reveal r5 term-card"><div class="term-icon">🔒</div><div><div class="term-name">케이스 3 — 예금담보대출과 질권</div><div class="term-desc">예금을 담보로 잡을 때 무엇을 확인하나?</div></div></div>
+  <div class="reveal r6 term-card"><div class="term-icon">🕊️</div><div><div class="term-name">케이스 4 — 예금주 사망</div><div class="term-desc">예금은 어떻게 처리하나?</div></div></div>
+  <div class="reveal r7 term-card"><div class="term-icon">⚖️</div><div><div class="term-name">케이스 5 — 법원 서류가 왔습니다</div><div class="term-desc">압류·추심·전부명령 대응</div></div></div>
+</div>
+`);
+/* ===================== 케이스 1: 대리인이 왔다 ===================== */
+
+addSlide('케이스1 표지', `
+<div class="case-cover">
+  <div class="bg-deco float" style="width:380px;height:380px;top:-10%;right:-90px;"></div>
+  <div class="bg-deco float" style="width:200px;height:200px;bottom:-6%;left:-60px;animation-delay:1s;background:radial-gradient(circle,rgba(245,166,35,0.10),transparent 70%);"></div>
+  <div class="reveal r1 case-num-huge pop">01</div>
+  <div class="reveal r2 case-tag">CASE 1</div>
+  <div class="reveal r3 case-title">대리인이<br>왔다</div>
+  <div class="reveal r4 case-meta">연결 강의 1강·5강 · 수신방법서 제6·8·36·39조</div>
+  <div class="case-progress-dots"><span class="done"></span><span></span><span></span><span></span><span></span></div>
+</div>
+`);
+
+addCaseQuiz(1);
+
+addSlide('케이스1 용어', `
+<div class="slide-inner">
+  <div class="reveal r1 eyebrow">📚 사전 용어 정리</div>
+  <div class="reveal r2 h1" style="margin-bottom:18px;">케이스 1 — 용어부터</div>
+
+  <div class="reveal r3 term-card">
+    <div class="term-icon">👥</div>
+    <div>
+      <div class="term-name">대리인 (代理人)</div>
+      <div class="term-desc">다른 사람을 대신해서 법률행위를 하는 사람<br>예) 엄마가 아이 대신 예금을 찾아가는 것</div>
+    </div>
+  </div>
+  <div class="reveal r4 term-card">
+    <div class="term-icon">📄</div>
+    <div>
+      <div class="term-name">위임장 (委任狀)</div>
+      <div class="term-desc">예금주가 직접 작성한 공식 문서. 인감증명서와 함께 제출합니다.</div>
+    </div>
+  </div>
+</div>
+`);
+
+addSlide('케이스1 스토리A', `
+<div class="slide-inner">
+  <div class="reveal r1 eyebrow">💬 STORY A</div>
+  <div class="reveal r2 h2" style="margin-bottom:14px;">할머니와 손자</div>
+
+  <div class="reveal r3 speech-bubble">
+    <div class="speaker-tag"><div class="speaker-avatar">👵</div><div class="speaker-name">방문 고객</div></div>
+    "우리 손자 대신 왔어요. 손자 통장에 50만원만 좀 찾아줘요. 애가 병원비가 급하다고 해서요. 통장이랑 도장 다 가져왔어요."
+  </div>
+
+  <div class="reveal r4 card-flat" style="margin-top:16px;">
+    <div class="small-text" style="margin-bottom:6px;font-weight:700;color:var(--text-primary);">상황 정리</div>
+    <div class="body-text">· 예금주: 김○○ (손자, 22세 성인)<br>· 방문자: 할머니<br>· 지참물: 손자 통장 + 도장</div>
+  </div>
+</div>
+`);
+
+addSlide('케이스1 토론질문A', `
+<div class="slide-inner">
+  <div class="reveal r1 eyebrow">💭 토론해봅시다</div>
+  <div class="reveal r2 h2" style="margin-bottom:16px;">할머니가 왔다, 줘도 될까?</div>
+
+  <div class="reveal r3 discuss-card">
+    <div class="discuss-q"><span class="discuss-num">1</span>지금 바로 지급하시겠습니까? 왜 그렇게 생각하나요?</div>
+  </div>
+  <div class="reveal r4 discuss-card">
+    <div class="discuss-q"><span class="discuss-num">2</span>통장과 도장 소지 = 예금주가 보낸 것으로 봐도 되나요?</div>
+  </div>
+  <div class="reveal r5 discuss-card">
+    <div class="discuss-q"><span class="discuss-num">3</span>위임장이 없다면 어떻게 해야 할까요?</div>
+  </div>
+</div>
+`);
+
+addSlide('케이스1 해설A', `
+<div class="slide-inner">
+  <div class="reveal r1 eyebrow">✅ 해설 A</div>
+  <div class="reveal r2 h2" style="margin-bottom:14px;">대리인 지급 원칙</div>
+
+  <div class="reveal r3 card-flat">
+    <div class="body-text">수신업무방법서 <b class="accent">제36조(일반지급 절차)</b>의 핵심은 "예금주가 작성한 청구서"입니다.<br>
+    할머니는 예금주(손자)가 아닙니다. 대리하여 찾아가려면 원칙적으로 <b>위임장 + 예금주 인감증명서</b>가 필요합니다.</div>
+  </div>
+
+  <div class="reveal r4 option-grid">
+    <div class="option-card best">
+      <div class="option-num">1</div>
+      <div><div class="h3" style="font-size:15px;">손자에게 직접 전화하여 의사 확인</div><div class="small-text">편의취급 절차로 처리 · 제39조 (1일 100만원 이하, 1일 2회)</div></div>
+    </div>
+    <div class="option-card">
+      <div class="option-num">2</div>
+      <div><div class="h3" style="font-size:15px;">위임장 + 인감증명서를 받아오도록 안내</div><div class="small-text">제53조의2</div></div>
+    </div>
+    <div class="option-card">
+      <div class="option-num">3</div>
+      <div><div class="h3" style="font-size:15px;">지급 거절 후 손자 본인 방문 안내</div></div>
+    </div>
+  </div>
+
+  <button class="reveal-btn" onclick="toggleAnswer('case1-script')">🎤 창구 멘트 예시 보기</button>
+  <div class="answer-panel" id="case1-script">
+    <div class="speech-bubble" style="margin-top:10px;">
+      "손자분이 직접 오시거나, 손자분 성함과 인감이 들어간 위임장과 인감증명서를 가져오시면 처리해 드릴 수 있습니다. 또는 지금 손자분께 전화를 드려서 본인 의사를 확인하는 방법도 있습니다."
+    </div>
+  </div>
+</div>
+`);
+
+addSlide('케이스1 스토리B', `
+<div class="slide-inner">
+  <div class="reveal r1 eyebrow">💬 STORY B</div>
+  <div class="reveal r2 h2" style="margin-bottom:14px;">어머니와 미성년 자녀</div>
+
+  <div class="reveal r3 speech-bubble">
+    <div class="speaker-tag"><div class="speaker-avatar">👩</div><div class="speaker-name">방문 고객</div></div>
+    "우리 딸 예금 찾으러 왔어요. 제가 엄마예요."
+  </div>
+
+  <div class="reveal r4 card-flat" style="margin-top:16px;">
+    <div class="small-text" style="margin-bottom:6px;font-weight:700;color:var(--text-primary);">상황 정리</div>
+    <div class="body-text">· 예금주: 김△△ (딸, 만 14세)<br>· 방문자: 엄마 (40대)<br>· 지참물: 딸 통장 + 엄마 신분증</div>
+  </div>
+</div>
+`);
+
+addSlide('케이스1 토론질문B', `
+<div class="slide-inner">
+  <div class="reveal r1 eyebrow">💭 토론해봅시다</div>
+  <div class="reveal r2 h2" style="margin-bottom:16px;">미성년 자녀, 부모가 대리 가능?</div>
+
+  <div class="reveal r3 discuss-card">
+    <div class="discuss-q"><span class="discuss-num">1</span>미성년자의 경우 부모가 대리할 수 있나요?</div>
+  </div>
+  <div class="reveal r4 discuss-card">
+    <div class="discuss-q"><span class="discuss-num">2</span>엄마 신분증만 있으면 충분한가요?</div>
+  </div>
+  <div class="reveal r5 discuss-card">
+    <div class="discuss-q"><span class="discuss-num">3</span>부모가 이혼한 경우, 엄마만 와도 되나요?</div>
+  </div>
+</div>
+`);
+
+addSlide('케이스1 해설B', `
+<div class="slide-inner">
+  <div class="reveal r1 eyebrow">✅ 해설 B</div>
+  <div class="reveal r2 h2" style="margin-bottom:14px;">미성년자 예금 처리 원칙</div>
+
+  <div class="reveal r3 card-flat">
+    <div class="body-text"><b class="accent">제8조</b>: 미성년자는 법정대리인(부모)의 동의 또는 대리행위로 예금거래가 가능합니다. 엄마가 법정대리인이므로 예금 대리가 가능합니다.</div>
+  </div>
+
+  <div class="reveal r4 card">
+    <div class="table-scroll">
+    <table class="cmp-table">
+      <tr><th>확인 항목</th><th>이유</th></tr>
+      <tr><td>엄마와 딸의 관계 확인</td><td>가족관계증명서 또는 기본증명서 제출</td></tr>
+      <tr><td>엄마(법정대리인) 실명확인</td><td>신분증 확인</td></tr>
+      <tr><td>딸(미성년 예금주) 실명확인</td><td>가족관계증명서에 기재됨</td></tr>
+    </table>
+    </div>
+  </div>
+
+  <div class="reveal r5 warn-box">
+    <div class="warn-title">⚠️ 이혼한 경우</div>
+    <div class="small-text" style="color:var(--text-secondary);">친권자가 지정되어 있다면 지정된 친권자만 대리 가능. 가족관계증명서에 친권자 기재 확인 필수.</div>
+  </div>
+  <div class="reveal r6 warn-box">
+    <div class="warn-title">⚠️ 이해상반행위 주의</div>
+    <div class="small-text" style="color:var(--text-secondary);">엄마가 자기 빚을 갚으려고 딸의 예금을 사용하는 경우 → 특별대리인 선임 필요 (민법 제921조)</div>
+  </div>
+</div>
+`);
+
+addSlide('케이스1 핵심정리', `
+<div class="slide-inner">
+  <div class="reveal r1 eyebrow">📋 핵심 정리</div>
+  <div class="reveal r2 h2" style="margin-bottom:16px;">케이스 1 정리</div>
+
+  <div class="reveal r3 card">
+  <div class="table-scroll">
+  <table class="cmp-table">
+    <tr><th>상황</th><th>처리 원칙</th><th>근거</th></tr>
+    <tr><td>성인 대신 타인이 옴</td><td>위임장+인감증명서 원칙</td><td>제53조의2</td></tr>
+    <tr><td>전화로 본인 확인</td><td>편의취급 1일 100만원 이하</td><td>제39조</td></tr>
+    <tr><td>미성년 자녀 대리</td><td>법정대리인(부모) 확인</td><td>제8조</td></tr>
+    <tr><td>인감·서명 없이 지급</td><td>원칙 불가</td><td>제36조</td></tr>
+  </table>
+  </div>
+  </div>
+
+  <div class="reveal r4 key-line">
+    <span class="label">🔑 오늘의 한 줄</span>
+    예금주 본인이 아니면 반드시 <b style="color:#9DC4FF;">"대리 권한"</b>을 확인하라.
+  </div>
+</div>
+`);
+/* ===================== 케이스 2: 이 지급, 해도 되나요? ===================== */
+
+addSlide('케이스2 표지', `
+<div class="case-cover">
+  <div class="bg-deco float" style="width:380px;height:380px;bottom:-12%;left:-90px;"></div>
+  <div class="bg-deco float" style="width:200px;height:200px;top:-6%;right:-50px;animation-delay:1s;background:radial-gradient(circle,rgba(240,68,82,0.10),transparent 70%);"></div>
+  <div class="reveal r1 case-num-huge pop">02</div>
+  <div class="reveal r2 case-tag">CASE 2</div>
+  <div class="reveal r3 case-title">이 지급,<br>해도 되나요?</div>
+  <div class="reveal r4 case-meta">연결 강의 8강 · 수신방법서 제36·37·39·53조의2</div>
+  <div class="case-progress-dots"><span class="done"></span><span class="done"></span><span></span><span></span><span></span></div>
+</div>
+`);
+
+addCaseQuiz(2);
+
+addSlide('케이스2 용어', `
+<div class="slide-inner">
+  <div class="reveal r1 eyebrow">📚 사전 용어 정리</div>
+  <div class="reveal r2 h1" style="margin-bottom:18px;">케이스 2 — 용어부터</div>
+
+  <div class="reveal r3 term-card"><div class="term-icon">🚫</div><div><div class="term-name">지급제한</div><div class="term-desc">예금을 찾아가는 것이 법적으로 또는 규정상 막혀 있는 상태</div></div></div>
+  <div class="reveal r4 term-card"><div class="term-icon">🤝</div><div><div class="term-name">편의취급</div><div class="term-desc">정상 절차를 일부 완화해서 처리하는 것 (인감 없이, 통장 없이 등)</div></div></div>
+  <div class="reveal r5 term-card"><div class="term-icon">🔔</div><div><div class="term-name">사고신고</div><div class="term-desc">통장·인감을 잃어버렸거나 도용될 위험이 있을 때 거래를 막아달라는 신청</div></div></div>
+</div>
+`);
+
+addSlide('케이스2 스토리A', `
+<div class="slide-inner">
+  <div class="reveal r1 eyebrow">💬 STORY A</div>
+  <div class="reveal r2 h2" style="margin-bottom:14px;">인감이 다르다</div>
+
+  <div class="reveal r3 speech-bubble">
+    <div class="speaker-tag"><div class="speaker-avatar">🙆</div><div class="speaker-name">방문 고객</div></div>
+    "제 예금 1,000만원 전부 해지해 주세요."
+  </div>
+  <div class="reveal r4 card-flat" style="margin-top:14px;">
+    <div class="body-text">통장을 확인하니 전산 인감과 지금 찍은 인감이 약간 다릅니다. 고객은 "예전에 도장이 살짝 깨졌어요. 같은 도장인데 조금 달라 보일 수 있어요"라고 설명합니다.</div>
+  </div>
+</div>
+`);
+
+addSlide('케이스2 토론질문A', `
+<div class="slide-inner">
+  <div class="reveal r1 eyebrow">💭 토론해봅시다</div>
+  <div class="reveal r2 h2" style="margin-bottom:16px;">인감 불일치, 어떻게?</div>
+
+  <div class="reveal r3 discuss-card"><div class="discuss-q"><span class="discuss-num">1</span>인감이 약간 다를 때 어떻게 해야 하나요?</div></div>
+  <div class="reveal r4 discuss-card"><div class="discuss-q"><span class="discuss-num">2</span>담당자 혼자 판단해도 되나요? 아니면 책임자에게 가져가야 하나요?</div></div>
+  <div class="reveal r5 discuss-card"><div class="discuss-q"><span class="discuss-num">3</span>신분증은 맞고 인감이 다를 때, 어느 쪽을 더 중시해야 하나요?</div></div>
+</div>
+`);
+
+addSlide('케이스2 해설A', `
+<div class="slide-inner">
+  <div class="reveal r1 eyebrow">✅ 해설 A</div>
+  <div class="reveal r2 h2" style="margin-bottom:14px;">인감 불일치 판단 기준</div>
+
+  <div class="reveal r3 card-flat">
+    <div class="body-text"><b class="accent">제36조</b>: 인감이 다르면 지급 보류가 원칙입니다.</div>
+  </div>
+
+  <div class="reveal r4 card">
+  <div class="table-scroll">
+  <table class="cmp-table">
+    <tr><th>상황</th><th>조치</th></tr>
+    <tr><td>인감 불일치가 경미한 경우</td><td>책임자와 함께 판단</td></tr>
+    <tr><td>인감 불일치가 명확한 경우</td><td>지급 보류 / 본인 확인 후 처리</td></tr>
+    <tr><td>비밀번호도 다른 경우</td><td>즉시 지급 거절</td></tr>
+    <tr><td>금액이 큰 경우</td><td>제36조 6호 — 책임자 결재 필수</td></tr>
+  </table>
+  </div>
+  </div>
+</div>
+`);
+
+addSlide('케이스2 체크리스트 1/2', `
+<div class="slide-inner">
+  <div class="reveal r1 eyebrow">✔️ CHECKLIST · 1/2</div>
+  <div class="reveal r2 h2" style="margin-bottom:6px;">현금 지급 시<br>8가지 체크리스트</div>
+  <div class="reveal r3 small-text" style="margin-bottom:16px;">제37조(현금지급시 유의사항) — 창구 담당자의 기본 업무</div>
+
+  <div class="reveal r4 card">
+    <div class="check-item"><div class="check-num">1</div><div class="check-text">실명확인이 되어 있는가?</div></div>
+    <div class="check-item"><div class="check-num">2</div><div class="check-text">금액을 고쳐 쓴 흔적이 있는가?</div></div>
+    <div class="check-item"><div class="check-num">3</div><div class="check-text">질권설정이 되어 있지 않은가?</div></div>
+    <div class="check-item"><div class="check-num">4</div><div class="check-text">법적 지급제한은 없는가?</div></div>
+  </div>
+</div>
+`);
+
+addSlide('케이스2 체크리스트 2/2', `
+<div class="slide-inner">
+  <div class="reveal r1 eyebrow">✔️ CHECKLIST · 2/2</div>
+  <div class="reveal r2 h2" style="margin-bottom:6px;">현금 지급 시<br>8가지 체크리스트</div>
+  <div class="reveal r3 small-text" style="margin-bottom:16px;">제37조(현금지급시 유의사항) — 창구 담당자의 기본 업무</div>
+
+  <div class="reveal r4 card">
+    <div class="check-item"><div class="check-num">5</div><div class="check-text">통장·도장 분실, 도난 사고신고가 없는가?</div></div>
+    <div class="check-item"><div class="check-num">6</div><div class="check-text">주금액과 부금액이 일치하는가?</div></div>
+    <div class="check-item"><div class="check-num">7</div><div class="check-text">평소 거래에 비해 청구금액이 지나치게 많지 않은가?</div></div>
+    <div class="check-item"><div class="check-num">8</div><div class="check-text">서명 거래이면 본인인지 확인했는가?</div></div>
+  </div>
+</div>
+
+`);
+
+addSlide('케이스2 스토리B', `
+<div class="slide-inner">
+  <div class="reveal r1 eyebrow">💬 STORY B</div>
+  <div class="reveal r2 h2" style="margin-bottom:14px;">갑자기 큰돈을 찾으러 온 어르신</div>
+
+  <div class="reveal r3 speech-bubble">
+    <div class="speaker-tag"><div class="speaker-avatar">👴</div><div class="speaker-name">방문 고객 (70대)</div></div>
+    "5,000만원 찾으러 왔어요. 현금으로요."
+  </div>
+  <div class="reveal r4 card-flat" style="margin-top:14px;">
+    <div class="body-text">· 평소 거래: 월 50만원 정도<br>· 오늘 요청: 현금 5,000만원</div>
+  </div>
+</div>
+`);
+
+addSlide('케이스2 토론질문B', `
+<div class="slide-inner">
+  <div class="reveal r1 eyebrow">💭 토론해봅시다</div>
+  <div class="reveal r2 h2" style="margin-bottom:16px;">5,000만원, 의심해야 할까?</div>
+
+  <div class="reveal r3 discuss-card"><div class="discuss-q"><span class="discuss-num">1</span>신분증도 맞고 인감도 맞다면, 줘야 하지 않나요?</div></div>
+  <div class="reveal r4 discuss-card"><div class="discuss-q"><span class="discuss-num">2</span>5,000만원 현금 요청 — 무엇이 의심스러운가요?</div></div>
+  <div class="reveal r5 discuss-card"><div class="discuss-q"><span class="discuss-num">3</span>지급을 보류하고 싶다면 어떻게 해야 하나요?</div></div>
+
+  <div class="reveal r6 warn-box" style="margin-top:14px;">
+    <div class="warn-title">📍 제37조 7호</div>
+    <div class="small-text" style="color:var(--text-secondary);">"평소의 거래 상태에 비추어 청구금액이 지나치게 많거나 의심스러운 점이 없는가?" — 평소 50만원 → 갑자기 5,000만원 = 명백한 이상 거래</div>
+  </div>
+</div>
+`);
+
+addSlide('케이스2 보이스피싱', `
+<div class="slide-inner">
+  <div class="reveal r1 eyebrow">🛡️ 금융사기 예방</div>
+  <div class="reveal r2 h1" style="margin-bottom:18px;">보이스피싱·금융사기<br>예방 대응법</div>
+
+  <div class="reveal r3 card pulse-blue" style="border-left:4px solid var(--blue-primary);">
+    <div style="font-size:26px;margin-bottom:8px;">1️⃣</div>
+    <div class="h3" style="margin-bottom:6px;">"오늘 이 돈 왜 찾으시나요?"</div>
+    <div class="body-text">조심스럽게, 그러나 반드시 이유를 물어보세요. "경찰이다", "검찰이다", "자녀가 사고 났다"라며 현금 인출을 유도하는 수법이 많습니다.</div>
+  </div>
+  <div class="reveal r4 card" style="border-left:4px solid var(--amber-strong);">
+    <div style="font-size:26px;margin-bottom:8px;">2️⃣</div>
+    <div class="h3" style="margin-bottom:6px;">수상한 경우 즉시 책임자 보고</div>
+    <div class="body-text">담당자 혼자 판단하지 말고 즉시 책임자에게 상황을 알리세요. 경우에 따라 지급 지연 또는 경찰 신고를 고려해야 합니다.</div>
+  </div>
+</div>
+`);
+
+addSlide('케이스2 스토리C', `
+<div class="slide-inner">
+  <div class="reveal r1 eyebrow">💬 STORY C</div>
+  <div class="reveal r2 h2" style="margin-bottom:14px;">통장과 도장이 없다</div>
+
+  <div class="reveal r3 speech-bubble">
+    <div class="speaker-tag"><div class="speaker-avatar">😟</div><div class="speaker-name">방문 고객</div></div>
+    "통장이랑 도장을 잃어버렸어요. 하지만 돈이 급해요. 신분증은 있어요. 오늘 100만원만 찾을 수 있나요?"
+  </div>
+
+  <div class="reveal r4 card-flat" style="margin-top:14px;">
+    <div class="small-text" style="font-weight:700;color:var(--text-primary);margin-bottom:4px;">제39조(편의취급) ①1호</div>
+    <div class="body-text">"부득이한 사정으로 무통장, 무인감 청구 요구 시 예금편의취급기록부에 기록하고 책임자의 확인을 받은 후 예금주 본인이 작성한 전표에 의하여 지급할 수 있다."</div>
+  </div>
+</div>
+`);
+
+addSlide('케이스2 해설C', `
+<div class="slide-inner">
+  <div class="reveal r1 eyebrow">✅ 해설 C</div>
+  <div class="reveal r2 h2" style="margin-bottom:14px;">편의취급 처리 흐름</div>
+
+  <div class="reveal r3 timeline">
+    <div class="tl-item"><div class="tl-dot"></div><div class="body-text"><b style="color:var(--text-primary)">본인확인</b></div></div>
+    <div class="tl-item"><div class="tl-dot"></div><div class="body-text"><b style="color:var(--text-primary)">기록부 기재</b></div></div>
+    <div class="tl-item"><div class="tl-dot"></div><div class="body-text"><b style="color:var(--text-primary)">책임자 확인</b></div></div>
+    <div class="tl-item"><div class="tl-dot"></div><div class="body-text"><b style="color:var(--text-primary)">전표 작성</b></div></div>
+    <div class="tl-item"><div class="tl-dot" style="background:var(--green-strong);box-shadow:0 0 0 2px var(--green-strong);"></div><div class="body-text"><b style="color:var(--text-primary)">지급한도 — 1일 100만원 이하, 1일 2회</b></div></div>
+  </div>
+
+  <div class="reveal r4 warn-box">
+    <div class="warn-title">⚠️ 함께 안내할 것</div>
+    <div class="small-text" style="color:var(--text-secondary);">통장과 도장을 잃어버린 경우, 동시에 사고신고서 접수 및 전산 출금정지 등록을 권유해야 합니다. (제95조)</div>
+  </div>
+</div>
+`);
+
+addSlide('케이스2 핵심정리', `
+<div class="slide-inner">
+  <div class="reveal r1 eyebrow">📋 핵심 정리</div>
+  <div class="reveal r2 h2" style="margin-bottom:16px;">케이스 2 정리</div>
+
+  <div class="reveal r3 card">
+  <div class="table-scroll">
+  <table class="cmp-table">
+    <tr><th>상황</th><th>처리 원칙</th><th>근거</th></tr>
+    <tr><td>인감 불일치</td><td>지급 보류 → 책임자 판단</td><td>제36조</td></tr>
+    <tr><td>의심스러운 거래</td><td>이유 확인 → 책임자 보고</td><td>제37조 7호</td></tr>
+    <tr><td>무통장·무인감</td><td>편의취급 1일 100만원</td><td>제39조</td></tr>
+    <tr><td>분실 신고</td><td>사고신고서 접수 → 출금정지</td><td>제95조</td></tr>
+  </table>
+  </div>
+  </div>
+</div>
+`);
+/* ===================== 케이스 3: 예금담보대출과 질권 ===================== */
+
+addSlide('케이스3 표지', `
+<div class="case-cover">
+  <div class="bg-deco float" style="width:380px;height:380px;top:-10%;left:-90px;"></div>
+  <div class="bg-deco float" style="width:200px;height:200px;bottom:-6%;right:-50px;animation-delay:1s;background:radial-gradient(circle,rgba(10,194,130,0.10),transparent 70%);"></div>
+  <div class="reveal r1 case-num-huge pop">03</div>
+  <div class="reveal r2 case-tag">CASE 3</div>
+  <div class="reveal r3 case-title">예금담보대출과<br>질권</div>
+  <div class="reveal r4 case-meta">연결 강의 1강·2강 · 수신방법서 제76조~제81조</div>
+  <div class="case-progress-dots"><span class="done"></span><span class="done"></span><span class="done"></span><span></span><span></span></div>
+</div>
+`);
+
+addCaseQuiz(3);
+
+addSlide('케이스3 용어', `
+<div class="slide-inner">
+  <div class="reveal r1 eyebrow">📚 사전 용어 정리</div>
+  <div class="reveal r2 h1" style="margin-bottom:18px;">케이스 3 — 용어부터</div>
+
+  <div class="reveal r3 term-card"><div class="term-icon">🔒</div><div><div class="term-name">질권 (質權)</div><div class="term-desc">예금을 담보로 잡는 권리. 담보물이 예금통장이면 "예금 질권"</div></div></div>
+  <div class="reveal r4 term-card"><div class="term-icon">🏦</div><div><div class="term-name">질권자</div><div class="term-desc">담보를 잡은 사람 (대출해 준 금융기관 또는 제3자)</div></div></div>
+  <div class="reveal r5 term-card"><div class="term-icon">🙋</div><div><div class="term-name">질권설정자</div><div class="term-desc">담보를 제공한 사람 (예금주)</div></div></div>
+  <div class="reveal r6 term-card"><div class="term-icon">💳</div><div><div class="term-name">피담보채권</div><div class="term-desc">질권이 담보하는 대출 원금 및 이자</div></div></div>
+</div>
+`);
+
+addSlide('케이스3 스토리A', `
+<div class="slide-inner">
+  <div class="reveal r1 eyebrow">💬 STORY A</div>
+  <div class="reveal r2 h2" style="margin-bottom:14px;">예금을 담보로 잡고 대출</div>
+
+  <div class="reveal r3 speech-bubble">
+    <div class="speaker-tag"><div class="speaker-avatar">🙆</div><div class="speaker-name">방문 고객</div></div>
+    "제 정기예탁금 5,000만원을 담보로 3,000만원 대출받고 싶어요."
+  </div>
+</div>
+`);
+
+addSlide('케이스3 토론질문A', `
+<div class="slide-inner">
+  <div class="reveal r1 eyebrow">💭 토론해봅시다</div>
+  <div class="reveal r2 h2" style="margin-bottom:16px;">질권 설정, 무슨 의미?</div>
+
+  <div class="reveal r3 discuss-card"><div class="discuss-q"><span class="discuss-num">1</span>"예금에 질권을 설정한다"는 게 무슨 뜻인가요?</div></div>
+  <div class="reveal r4 discuss-card"><div class="discuss-q"><span class="discuss-num">2</span>질권을 설정하면 예금주는 그 예금을 찾아갈 수 있나요?</div></div>
+  <div class="reveal r5 discuss-card"><div class="discuss-q"><span class="discuss-num">3</span>예금이 만기가 됐을 때 이자는 줘도 되나요?</div></div>
+</div>
+`);
+
+addSlide('케이스3 승낙절차', `
+<div class="slide-inner">
+  <div class="reveal r1 eyebrow">📐 PROCEDURE</div>
+  <div class="reveal r2 h2" style="margin-bottom:6px;">질권설정 승낙 절차</div>
+  <div class="reveal r3 small-text" style="margin-bottom:16px;">제77조</div>
+
+  <div class="reveal r4 timeline">
+    <div class="tl-item"><div class="tl-dot"></div><div class="body-text">예금주·질권자 연서한 질권설정 승낙의뢰서 + 통장 접수</div></div>
+    <div class="tl-item"><div class="tl-dot"></div><div class="body-text">예금종류, 계좌번호, 질권액, 변제기일 확인</div></div>
+    <div class="tl-item"><div class="tl-dot"></div><div class="body-text">도장과 신고인감 일치 여부 확인</div></div>
+    <div class="tl-item"><div class="tl-dot"></div><div class="body-text">질권설정 내용 전산등록</div></div>
+    <div class="tl-item"><div class="tl-dot"></div><div class="body-text">질권설정승낙서 작성 → 이사장 명의 날인</div></div>
+    <div class="tl-item"><div class="tl-dot" style="background:var(--green-strong);box-shadow:0 0 0 2px var(--green-strong);"></div><div class="body-text">승낙서 2통: 1통 질권자, 1통 확정일자 받아 보관</div></div>
+  </div>
+</div>
+`);
+
+addSlide('케이스3 해설A', `
+<div class="slide-inner">
+  <div class="reveal r1 eyebrow">✅ 해설 A</div>
+  <div class="reveal r2 h2" style="margin-bottom:14px;">질권 설정 후 지급정지 원칙</div>
+
+  <div class="reveal r3 key-line">
+    <span class="label">📍 제79조</span>
+    "질권을 설정한 예금의 원리금은 질권자로부터 질권설정 해지통지서를 접수한 후가 아니면 지급할 수 없다."
+  </div>
+  <div class="reveal r4 card-flat">
+    <div class="body-text">= 담보 잡힌 예금은 질권자 동의 없이 예금주에게 줄 수 <b class="accent">없습니다</b>.</div>
+  </div>
+
+  <div class="reveal r5 ok-box">
+    <div class="ok-title">💡 이자는 어떻게?</div>
+    <div class="small-text" style="color:var(--text-secondary);">제79조 단서: 질권설정 당사자 간 특약으로 예금이자 지급을 허용한 경우, 또는 채권보전에 지장이 없다고 인정되는 경우에는 이자에 한하여 질권 해지 이전이라도 지급할 수 있습니다.</div>
+  </div>
+
+  <div class="reveal r6 card">
+  <div class="table-scroll">
+  <table class="cmp-table">
+    <tr><th>승낙 전 확인사항 (제78조)</th><th>내용</th></tr>
+    <tr><td>사고신고 여부</td><td>사고신고가 있으면 질권설정 불가</td></tr>
+    <tr><td>인감 일치 여부</td><td>신고인감과 반드시 일치해야 함</td></tr>
+    <tr><td>중복 질권 여부</td><td>이미 다른 질권이 설정되어 있지 않은지 확인</td></tr>
+    <tr><td>채권보전 문제</td><td>해당 예금주에게 이미 대출이 있어 문제없는지</td></tr>
+  </table>
+  </div>
+  </div>
+</div>
+`);
+
+addSlide('케이스3 스토리B', `
+<div class="slide-inner">
+  <div class="reveal r1 eyebrow">💬 STORY B</div>
+  <div class="reveal r2 h2" style="margin-bottom:14px;">아이 통장을 담보로</div>
+
+  <div class="reveal r3 speech-bubble">
+    <div class="speaker-tag"><div class="speaker-avatar">👩</div><div class="speaker-name">방문 고객</div></div>
+    "저 급하게 1,000만원이 필요한데요. 제 예금은 이미 담보 잡혀 있고, 우리 아이(12세) 예탁금 2,000만원이 있는데 그걸로 대출 받을 수 있을까요? 제가 친권자예요."
+  </div>
+</div>
+`);
+
+addSlide('케이스3 이해상반', `
+<div class="slide-inner">
+  <div class="reveal r1 eyebrow">⚠️ 이해상반행위</div>
+  <div class="reveal r2 h2" style="margin-bottom:14px;">이해상반행위 판단</div>
+
+  <div class="reveal r3 warn-box">
+    <div class="warn-title">🚫 문제 구조</div>
+    <div class="body-text" style="color:var(--text-primary);">엄마(채무자) + 아이 예금 담보 제공<br>→ 엄마에게는 유익, 아이에게는 불이익<br>= <b>이해상반행위 해당</b></div>
+  </div>
+  <div class="reveal r4 card-flat">
+    <div class="small-text">→ 특별대리인 선임 필요 (민법 제921조 + 방법서 제111조의2)</div>
+  </div>
+
+  <div class="reveal r5 ok-box" style="margin-top:16px;">
+    <div class="ok-title">✅ 해결 방법</div>
+    <div class="body-text" style="color:var(--text-primary);">채무자를 <b>아이</b>로 바꿉니다.<br>아이(채무자) + 아이 예금 담보, 엄마는 법정대리인으로 서명<br>→ 아이가 자신의 예금으로 자신의 대출 = 이해상반 아님 → 특별대리인 불필요</div>
+  </div>
+
+  <button class="reveal-btn" onclick="toggleAnswer('case3-script')">🎤 창구 안내 멘트 보기</button>
+  <div class="answer-panel" id="case3-script">
+    <div class="speech-bubble" style="margin-top:10px;">"채무자를 자녀 명의로 하고 어머니가 법정대리인으로 서명하시면 특별대리인 없이 처리가 가능합니다."</div>
+  </div>
+</div>
+`);
+
+addSlide('케이스3 스토리C', `
+<div class="slide-inner">
+  <div class="reveal r1 eyebrow">💬 STORY C</div>
+  <div class="reveal r2 h2" style="margin-bottom:14px;">질권 잡힌 예금 해지 요청</div>
+
+  <div class="reveal r3 speech-bubble">
+    <div class="speaker-tag"><div class="speaker-avatar">🙆</div><div class="speaker-name">방문 고객</div></div>
+    "대출 다 갚았어요. 질권 풀고 예금 찾고 싶어요."
+  </div>
+
+  <div class="reveal r4 warn-box" style="margin-top:16px;">
+    <div class="warn-title">❗ 중요</div>
+    <div class="body-text" style="color:var(--text-primary);">대출 상환 영수증만으로는 부족합니다. 질권자(대출금융기관)가 발행한 <b>질권해지 통지서</b>가 반드시 있어야 합니다.</div>
+  </div>
+  <div class="reveal r5 card-flat">
+    <div class="small-text" style="font-weight:700;color:var(--text-primary);margin-bottom:4px;">제81조 ①</div>
+    <div class="body-text">"피담보채권이 변제 등의 사유로 소멸하여 질권자로부터 질권해지의 통지를 받은 뒤가 아니면 예금을 예금주에게 지급할 수 없다."</div>
+  </div>
+</div>
+`);
+
+addSlide('케이스3 핵심정리', `
+<div class="slide-inner">
+  <div class="reveal r1 eyebrow">📋 핵심 정리</div>
+  <div class="reveal r2 h2" style="margin-bottom:16px;">케이스 3 정리</div>
+
+  <div class="reveal r3 card">
+  <div class="table-scroll">
+  <table class="cmp-table">
+    <tr><th>상황</th><th>처리 원칙</th><th>근거</th></tr>
+    <tr><td>예금담보 질권설정</td><td>인감확인+사고신고+중복질권 확인</td><td>제78조</td></tr>
+    <tr><td>질권설정 후 지급 요청</td><td>질권자 해지통지 없으면 불가</td><td>제79조</td></tr>
+    <tr><td>이해상반 상황</td><td>채무자를 미성년자로 변경하면 해결</td><td>제8조+민법 제921조</td></tr>
+    <tr><td>질권 해지</td><td>질권자 발행 해지통지서 필수</td><td>제80·81조</td></tr>
+  </table>
+  </div>
+  </div>
+
+  <div class="reveal r4 key-line">
+    <span class="label">🔑 오늘의 한 줄</span>
+    담보 잡힌 예금은 <b style="color:#9DC4FF;">담보권자(질권자)</b>가 풀어줘야만 찾아갈 수 있다.
+  </div>
+</div>
+`);
+/* ===================== 케이스 4: 예금주가 돌아가셨습니다 ===================== */
+
+addSlide('케이스4 표지', `
+<div class="case-cover">
+  <div class="bg-deco float" style="width:380px;height:380px;bottom:-12%;right:-90px;"></div>
+  <div class="bg-deco float" style="width:200px;height:200px;top:-6%;left:-50px;animation-delay:1s;background:radial-gradient(circle,rgba(240,68,82,0.10),transparent 70%);"></div>
+  <div class="reveal r1 case-num-huge pop">04</div>
+  <div class="reveal r2 case-tag">CASE 4</div>
+  <div class="reveal r3 case-title">예금주가<br>돌아가셨습니다</div>
+  <div class="reveal r4 case-meta">연결 강의 3·4·7강 · 수신방법서 제111조 전체</div>
+  <div class="case-progress-dots"><span class="done"></span><span class="done"></span><span class="done"></span><span class="done"></span><span></span></div>
+</div>
+`);
+
+addCaseQuiz(4);
+
+addSlide('케이스4 용어', `
+<div class="slide-inner">
+  <div class="reveal r1 eyebrow">📚 사전 용어 정리</div>
+  <div class="reveal r2 h1" style="margin-bottom:18px;">케이스 4 — 용어부터</div>
+
+  <div class="reveal r3 term-card"><div class="term-icon">🕊️</div><div><div class="term-name">상속 (相續)</div><div class="term-desc">사람이 사망하면 재산과 빚이 법에 따라 가족에게 넘어가는 것</div></div></div>
+  <div class="reveal r4 term-card"><div class="term-icon">🪦</div><div><div class="term-name">피상속인</div><div class="term-desc">돌아가신 분 (=예금주)</div></div></div>
+  <div class="reveal r5 term-card"><div class="term-icon">👪</div><div><div class="term-name">상속인</div><div class="term-desc">재산을 받을 가족들 (배우자, 자녀 등)</div></div></div>
+  <div class="reveal r6 term-card"><div class="term-icon">📝</div><div><div class="term-name">손해담보부약정</div><div class="term-desc">"나중에 문제가 생기면 내가 책임집니다"는 상속인의 서약서. 상속예금 지급 시 반드시 받아야 합니다.</div></div></div>
+</div>
+`);
+
+addSlide('케이스4 스토리A', `
+<div class="slide-inner">
+  <div class="reveal r1 eyebrow">💬 STORY A</div>
+  <div class="reveal r2 h2" style="margin-bottom:14px;">사망 소식</div>
+
+  <div class="reveal r3 speech-bubble">
+    <div class="speaker-tag"><div class="speaker-avatar">😢</div><div class="speaker-name">방문 고객 (딸)</div></div>
+    "아버지가 어제 갑자기 돌아가셨어요. 아버지 예금이 여기 있는 것 같아서요. 제가 찾을 수 있나요? 아버지 통장이랑 도장 가져왔어요."
+  </div>
+</div>
+`);
+
+addSlide('케이스4 토론질문A', `
+<div class="slide-inner">
+  <div class="reveal r1 eyebrow">💭 토론해봅시다</div>
+  <div class="reveal r2 h2" style="margin-bottom:16px;">사망 신고, 첫 행동은?</div>
+
+  <div class="reveal r3 discuss-card"><div class="discuss-q"><span class="discuss-num">1</span>딸이 통장과 도장을 가져왔습니다. 지금 바로 출금해 드릴 수 있나요?</div></div>
+  <div class="reveal r4 discuss-card"><div class="discuss-q"><span class="discuss-num">2</span>예금주가 사망했다는 사실을 알게 된 순간, 가장 먼저 해야 할 일은?</div></div>
+  <div class="reveal r5 discuss-card"><div class="discuss-q"><span class="discuss-num">3</span>딸 말고도 아들, 배우자가 있다면 딸 혼자 전액 받을 수 있나요?</div></div>
+</div>
+`);
+
+addSlide('케이스4 해설A', `
+<div class="slide-inner">
+  <div class="reveal r1 eyebrow">✅ 해설 A</div>
+  <div class="reveal r2 h2" style="margin-bottom:14px;">사망 인지 즉시 출금정지</div>
+
+  <div class="reveal r3 key-line">
+    <span class="label">📍 제111조 ①</span>
+    "예금주 사망 사실을 상속인으로부터 신고받았거나 기타의 방법으로 알았을 때에는 즉시 전산원장에 출금정지 등록한다."
+  </div>
+  <div class="reveal r4 card-flat">
+    <div class="body-text">딸이 통장을 가져왔어도, 아버지가 돌아가셨다는 사실을 알았다면 <b class="accent">즉시 출금정지</b>가 먼저입니다.</div>
+  </div>
+
+  <div class="reveal r5 warn-box">
+    <div class="warn-title">❌ 알면서도 지급하면?</div>
+    <div class="small-text" style="color:var(--text-secondary);">사망 사실을 알고 있으면 "준점유자 변제 면책"이 적용되지 않습니다. 다른 상속인이 금융기관을 상대로 소송할 수 있습니다.</div>
+  </div>
+  <div class="reveal r6 ok-box">
+    <div class="ok-title">✅ 딸 혼자 전액 수령 — 원칙 불가</div>
+    <div class="small-text" style="color:var(--text-secondary);">제111조 ③: 공동상속인이 지급을 요청할 경우 상속인 전원이 연서한 대표상속인 지정 및 손해담보부약정서를 청구하고 대표상속인을 지정받아 처리합니다.</div>
+  </div>
+</div>
+`);
+
+addSlide('케이스4 스토리B', `
+<div class="slide-inner">
+  <div class="reveal r1 eyebrow">💬 STORY B</div>
+  <div class="reveal r2 h2" style="margin-bottom:14px;">상속인 서류를 갖춰왔어요</div>
+
+  <div class="reveal r3 body-text" style="margin-bottom:14px;">1주일 후, 딸이 가족관계증명서를 갖고 다시 왔습니다.</div>
+  <div class="reveal r4 card-flat">
+    <div class="small-text" style="font-weight:700;color:var(--text-primary);margin-bottom:4px;">상속인 현황</div>
+    <div class="body-text">· 배우자 (어머니, 70세)<br>· 장남 (오빠)<br>· 딸 (본인)</div>
+    <div class="divider"></div>
+    <div class="body-text">예금 총액: <b class="accent" style="font-size:20px;">450만원</b></div>
+  </div>
+</div>
+`);
+
+addSlide('케이스4 토론질문B', `
+<div class="slide-inner">
+  <div class="reveal r1 eyebrow">💭 토론해봅시다</div>
+  <div class="reveal r2 h2" style="margin-bottom:16px;">소액상속, 적용될까?</div>
+
+  <div class="reveal r3 discuss-card"><div class="discuss-q"><span class="discuss-num">1</span>서류를 어떻게 청구해야 하나요?</div></div>
+  <div class="reveal r4 discuss-card"><div class="discuss-q"><span class="discuss-num">2</span>예금 총액이 450만원 — 소액상속 간소화가 적용되나요?</div></div>
+  <div class="reveal r5 discuss-card"><div class="discuss-q"><span class="discuss-num">3</span>어머니가 거동이 불편해서 못 오신다면?</div></div>
+</div>
+`);
+
+addSlide('케이스4 해설B서류', `
+<div class="slide-inner">
+  <div class="reveal r1 eyebrow">✅ 해설 B</div>
+  <div class="reveal r2 h2" style="margin-bottom:6px;">상속인 확인 서류</div>
+  <div class="reveal r3 small-text" style="margin-bottom:14px;">제111조 ②</div>
+
+  <div class="reveal r4 card">
+  <div class="table-scroll">
+  <table class="cmp-table">
+    <tr><th>서류</th><th>언제 필요한가</th></tr>
+    <tr><td>피상속인 가족관계증명서</td><td>필수</td></tr>
+    <tr><td>피상속인 제적등본</td><td>3순위 이상 상속인, 대습상속, 2008년 이전 사망</td></tr>
+    <tr><td>상속인 기본증명서</td><td>상속인이 미성년자인 경우 등</td></tr>
+    <tr><td>피상속인 기본증명서(사망일시)</td><td>사망신고 후</td></tr>
+    <tr><td>피상속인 사망진단서</td><td>사망신고 전·후 모두 사용 가능</td></tr>
+  </table>
+  </div>
+  </div>
+</div>
+`);
+
+addSlide('케이스4 소액상속', `
+<div class="slide-inner">
+  <div class="reveal r1 eyebrow">💰 소액상속 특례</div>
+  <div class="reveal r2 h2" style="margin-bottom:14px;">얼마까지 간소화 되나?</div>
+
+  <div class="reveal r3 key-line">
+    <span class="label">📊 이번 케이스</span>
+    총 예금 450만원 → 500만원 이하 → 소액상속 간소화 적용 가능 <span style="color:#9DC4FF;">(2025.08.29 개정)</span>
+  </div>
+
+  <div class="reveal r4 card-flat">
+    <div class="badge badge-blue" style="margin-bottom:8px;">500만원 이하 — 제111조 f</div>
+    <div class="body-text">상속인 중 1/2 이상이 내점하면 처리 가능 (3명 → 2명 이상 내점)<br>내점한 상속인 전원의 손해담보부약정서 필수</div>
+  </div>
+  <div class="reveal r5 card-flat">
+    <div class="badge badge-green" style="margin-bottom:8px;">300만원 이하 — 제111조 g</div>
+    <div class="body-text">상속인 중 1인 이상 방문하면 처리 가능<br>방문한 상속인에게 손해담보부약정서 징구, 책임자 결재 후 지급</div>
+  </div>
+
+  <div class="reveal r6 ok-box">
+    <div class="ok-title">✅ 이번 케이스(450만원)</div>
+    <div class="small-text" style="color:var(--text-secondary);">어머니가 못 오셔도 딸+오빠 2명이 내점하면 소액상속 규정으로 처리 가능. 단, 내점한 2명 명의 손해담보부약정서 필수.</div>
+  </div>
+</div>
+`);
+
+addSlide('케이스4 스토리C', `
+<div class="slide-inner">
+  <div class="reveal r1 eyebrow">💬 STORY C</div>
+  <div class="reveal r2 h2" style="margin-bottom:14px;">요양원이 유언장을 들고 왔다</div>
+
+  <div class="reveal r3 speech-bubble">
+    <div class="speaker-tag"><div class="speaker-avatar">🏥</div><div class="speaker-name">요양원 관계자</div></div>
+    "할아버지가 유언장에 이 통장 예탁금 1,000만원을 요양원에 주겠다고 하셨어요. 공정증서 유언입니다. 여기 유언장 있어요. 지급해 주세요."
+  </div>
+</div>
+`);
+
+addSlide('케이스4 유증해설', `
+<div class="slide-inner">
+  <div class="reveal r1 eyebrow">✅ 유증 처리</div>
+  <div class="reveal r2 h2" style="margin-bottom:14px;">포괄유증 vs 특정유증</div>
+
+  <div class="reveal r3 card">
+  <div class="table-scroll">
+  <table class="cmp-table">
+    <tr><th>구분</th><th>내용</th><th>금융기관 처리</th></tr>
+    <tr><td>포괄유증</td><td>"내 재산의 1/3을 요양원에"</td><td>수증자=상속인 지위 → 지급 가능</td></tr>
+    <tr><td>특정유증</td><td>"K금고 예탁금 1,000만원을 요양원에"</td><td>법정상속인에게 지급 원칙</td></tr>
+  </table>
+  </div>
+  </div>
+
+  <div class="reveal r4 warn-box">
+    <div class="warn-title">📍 이번 케이스 = 특정유증</div>
+    <div class="small-text" style="color:var(--text-secondary);">"K금고 정기예탁금 1,000만원" = 특정 재산을 지정 = 특정유증. 예탁금은 먼저 법정상속인(자녀 2명)에게 귀속되며, 요양원은 자녀들에게 유증 이행을 청구해야 합니다. 금융기관은 요양원에 직접 줄 의무가 없습니다.</div>
+  </div>
+</div>
+`);
+
+addSlide('케이스4 유증서류', `
+<div class="slide-inner">
+  <div class="reveal r1 eyebrow">📄 유증 처리 서류</div>
+  <div class="reveal r2 h2" style="margin-bottom:6px;">필요 서류 5종</div>
+  <div class="reveal r3 small-text" style="margin-bottom:16px;">제111조 ⑨</div>
+
+  <div class="reveal r4 card">
+    <div class="check-item"><div class="check-num">1</div><div class="check-text">사고신고서, 예금거래신청서 — 명의변경 원하는 경우 함께 제출</div></div>
+    <div class="check-item"><div class="check-num">2</div><div class="check-text">유언에 관한 증서 — 자필·공정·비밀·구수·녹음 중 1가지</div></div>
+    <div class="check-item"><div class="check-num">3</div><div class="check-text">법원의 유언서 검인조서 등본 — 공정증서·구수증서는 제외</div></div>
+    <div class="check-item"><div class="check-num">4</div><div class="check-text">수증자 실명확인증표(사본)</div></div>
+    <div class="check-item"><div class="check-num">5</div><div class="check-text">유증 수증자와 공동상속인이 연서한 손해담보부약정서</div></div>
+  </div>
+  <div class="reveal r5 ok-box">
+    <div class="ok-title">💡 참고</div>
+    <div class="small-text" style="color:var(--text-secondary);">공정증서 유언은 법원 검인이 불필요합니다.</div>
+  </div>
+</div>
+`);
+
+addSlide('케이스4 핵심정리', `
+<div class="slide-inner">
+  <div class="reveal r1 eyebrow">📋 핵심 정리</div>
+  <div class="reveal r2 h2" style="margin-bottom:16px;">케이스 4 정리</div>
+
+  <div class="reveal r3 card">
+  <div class="table-scroll">
+  <table class="cmp-table">
+    <tr><th>상황</th><th>처리 원칙</th><th>근거</th></tr>
+    <tr><td>사망 인지</td><td>즉시 전산 출금정지 등록</td><td>제111조①</td></tr>
+    <tr><td>상속인 확인</td><td>가족관계증명서 등 서류 청구</td><td>제111조②</td></tr>
+    <tr><td>공동상속인 지급</td><td>전원 연서 손해담보부약정서</td><td>제111조③</td></tr>
+    <tr><td>500만원 이하</td><td>상속인 1/2 이상 내점</td><td>제111조f</td></tr>
+    <tr><td>300만원 이하</td><td>상속인 1인 방문 가능</td><td>제111조g</td></tr>
+    <tr><td>유증</td><td>서류 5종 / 특정유증→법정상속인</td><td>제111조⑨</td></tr>
+  </table>
+  </div>
+  </div>
+
+  <div class="reveal r4 key-line">
+    <span class="label">🔑 오늘의 한 줄</span>
+    사망 인지 = <b style="color:#9DC4FF;">즉시 출금정지</b>. 모든 상속인의 동의 없이는 지급 안 된다.
+  </div>
+</div>
+`);
+/* ===================== 케이스 5: 법원 서류가 왔습니다 ===================== */
+
+addSlide('케이스5 표지', `
+<div class="case-cover">
+  <div class="bg-deco float" style="width:380px;height:380px;top:-10%;right:-90px;"></div>
+  <div class="bg-deco float" style="width:200px;height:200px;bottom:-6%;left:-50px;animation-delay:1s;background:radial-gradient(circle,rgba(49,130,246,0.10),transparent 70%);"></div>
+  <div class="reveal r1 case-num-huge pop">05</div>
+  <div class="reveal r2 case-tag">CASE 5</div>
+  <div class="reveal r3 case-title">법원 서류가<br>왔습니다</div>
+  <div class="reveal r4 case-meta">연결 강의 8~16강 · 수신방법서 제112·113·114·115·117·120조</div>
+  <div class="case-progress-dots"><span class="done"></span><span class="done"></span><span class="done"></span><span class="done"></span><span class="done"></span></div>
+</div>
+`);
+
+addCaseQuiz(5);
+
+addSlide('케이스5 용어', `
+<div class="slide-inner">
+  <div class="reveal r1 eyebrow">📚 사전 용어 정리</div>
+  <div class="reveal r2 h1" style="margin-bottom:18px;">케이스 5 — 용어부터</div>
+
+  <div class="reveal r3 term-card"><div class="term-icon">🛑</div><div><div class="term-name">압류</div><div class="term-desc">예금주에게 돈을 못 주게 법원이 막는 것</div></div></div>
+  <div class="reveal r4 term-card"><div class="term-icon">💵</div><div><div class="term-name">추심명령</div><div class="term-desc">채권자가 직접 와서 예금을 가져갈 수 있게 하는 법원 명령. 즉시 효력 발생</div></div></div>
+  <div class="reveal r5 term-card"><div class="term-icon">📜</div><div><div class="term-name">전부명령</div><div class="term-desc">예금 채권 자체를 채권자에게 넘기는 명령. 확정 후에만 효력 발생</div></div></div>
+  <div class="reveal r6 term-card"><div class="term-icon">🏛️</div><div><div class="term-name">체납처분</div><div class="term-desc">세금 안 낸 사람의 재산을 세무서가 압류하는 것. 민사채권보다 항상 우선</div></div></div>
+</div>
+`);
+
+addSlide('케이스5 스토리A', `
+<div class="slide-inner">
+  <div class="reveal r1 eyebrow">💬 STORY A</div>
+  <div class="reveal r2 h2" style="margin-bottom:14px;">압류명령 도착</div>
+
+  <div class="reveal r3 card-flat">
+    <div class="small-text" style="font-weight:700;color:var(--text-primary);margin-bottom:4px;">법원 서류 내용</div>
+    <div class="body-text">"예금주 홍○○, K새마을금고의 저축예금 500만원 압류명령"</div>
+  </div>
+  <div class="reveal r4 card-flat">
+    <div class="small-text" style="font-weight:700;color:var(--text-primary);margin-bottom:4px;">전산 확인 결과</div>
+    <div class="body-text">홍○○의 계좌는 정기예탁금 500만원 하나뿐. 저축예금 계좌는 없음.</div>
+  </div>
+</div>
+`);
+
+addSlide('케이스5 해설A', `
+<div class="slide-inner">
+  <div class="reveal r1 eyebrow">✅ 해설 A</div>
+  <div class="reveal r2 h2" style="margin-bottom:14px;">즉시 잠그고, 특정성 판단</div>
+
+  <div class="reveal r3 card pulse" style="border-left:4px solid var(--red-strong);">
+    <div class="h3" style="color:var(--red-strong);margin-bottom:6px;">⚡ 첫 번째 행동</div>
+    <div class="body-text">제112조 ③: 법원 명령이 도착하면 즉시 전산원장에 출금정지 등록이 원칙입니다. 서류를 읽기 전에 먼저 잠그세요.</div>
+  </div>
+
+  <div class="reveal r4 card-flat">
+    <div class="h3" style="font-size:15px;margin-bottom:6px;">❓ 명칭 불일치 — 유효한가?</div>
+    <div class="body-text">홍○○의 K금고 계좌가 정기예탁금 1개뿐이라면 → 명칭이 달라도 어떤 예금인지 명확히 알 수 있음 → 특정성 인정 가능 → <b class="accent">압류 유효</b></div>
+  </div>
+
+  <div class="reveal r5 warn-box">
+    <div class="warn-title">⚠️ 주의</div>
+    <div class="small-text" style="color:var(--text-secondary);">압류가 걸려 있으면 예금주에게도 지급할 수 없습니다. 홍○○가 창구에 찾아오더라도 출금정지 상태를 유지하고, 법원에 문의하거나 압류를 해제하도록 안내하세요.</div>
+  </div>
+</div>
+`);
+
+addSlide('케이스5 스토리B', `
+<div class="slide-inner">
+  <div class="reveal r1 eyebrow">💬 STORY B</div>
+  <div class="reveal r2 h2" style="margin-bottom:14px;">추심명령 vs 전부명령</div>
+  <div class="reveal r3 body-text" style="margin-bottom:14px;">박○○의 예탁금 1,000만원에 대해 두 종류의 명령이 각각 왔을 때 어떻게 다를까요?</div>
+
+  <div class="reveal r4 card">
+  <div class="table-scroll">
+  <table class="cmp-table">
+    <tr><th></th><th>추심명령</th><th>전부명령</th></tr>
+    <tr><td>효력</td><td>즉시 발생</td><td>확정 후에만 발생</td></tr>
+    <tr><td>필요 서류</td><td>채권자 신분 확인</td><td>확정증명서 필수</td></tr>
+    <tr><td>경합 시</td><td>여러 명 가능</td><td>경합 있으면 효력 없음</td></tr>
+    <tr><td>지급 주체</td><td>채권자가 와서 수령</td><td>채권자가 와서 수령</td></tr>
+  </table>
+  </div>
+  </div>
+
+  <div class="reveal r5 warn-box">
+    <div class="warn-title">⚠️ 전부명령 주의</div>
+    <div class="small-text" style="color:var(--text-secondary);">반드시 확정증명서를 확인하세요. 확정증명서 없이 지급하면 나중에 담당자 책임 문제가 발생합니다. (제115조 다목)</div>
+  </div>
+</div>
+`);
+
+addSlide('케이스5 스토리C', `
+<div class="slide-inner">
+  <div class="reveal r1 eyebrow">💬 STORY C</div>
+  <div class="reveal r2 h2" style="margin-bottom:14px;">세무서에서 왔어요</div>
+
+  <div class="reveal r3 card-flat">
+    <div class="body-text">민사 가압류(채권자 X, 금액 3,000만원)가 이미 걸려 있는 예탁금 3,000만원 계좌에, 오늘 관할 세무서에서 체납처분압류 통지 + 지급 요청이 왔습니다.</div>
+  </div>
+</div>
+`);
+
+addSlide('케이스5 해설C', `
+<div class="slide-inner">
+  <div class="reveal r1 eyebrow">✅ 해설 C</div>
+  <div class="reveal r2 h2" style="margin-bottom:14px;">체납처분 우선 원칙</div>
+
+  <div class="reveal r3 key-line">
+    <span class="label">📍 제117조</span>
+    세금은 민사채권보다 항상 우선합니다. 가압류 시기와 무관하게 세무서가 먼저입니다.
+  </div>
+
+  <div class="reveal r4 card">
+    <div class="h3" style="margin-bottom:10px;">💵 지급액 계산</div>
+    <div class="body-text">예탁금: 3,000만원<br>압류금지 공제: 250만원 (2026.02 기준)<br><span style="font-size:20px;font-weight:800;color:var(--blue-primary);">세무서 지급 가능액: 2,750만원</span></div>
+  </div>
+
+  <div class="reveal r5 warn-box">
+    <div class="warn-title">🚫 공탁 불가 이유</div>
+    <div class="small-text" style="color:var(--text-secondary);">민사집행+체납처분이 겹칠 때는 공탁 후 배분 절차를 담당하는 법적 규정이 없습니다. 법원에 공탁할 수 없으므로 세무서에 직접 지급합니다.</div>
+  </div>
+</div>
+`);
+
+addSlide('케이스5 스토리D', `
+<div class="slide-inner">
+  <div class="reveal r1 eyebrow">💬 STORY D</div>
+  <div class="reveal r2 h2" style="margin-bottom:14px;">압류금지 예금 요청</div>
+
+  <div class="reveal r3 speech-bubble">
+    <div class="speaker-tag"><div class="speaker-avatar">⚖️</div><div class="speaker-name">채권자</div></div>
+    "이○○씨 정기예탁금 300만원, 전부명령 확정됐어요. 300만원 주세요."
+  </div>
+
+  <div class="reveal r4 card-flat" style="margin-top:14px;">
+    <div class="small-text" style="font-weight:700;color:var(--text-primary);margin-bottom:4px;">제120조 + 민사집행법 시행령 제7조</div>
+    <div class="body-text">예금주 잔액 250만원 이하 = 압류 불가 (2026.02 현행 기준)</div>
+  </div>
+</div>
+`);
+
+addSlide('케이스5 해설D', `
+<div class="slide-inner">
+  <div class="reveal r1 eyebrow">✅ 해설 D</div>
+  <div class="reveal r2 h2" style="margin-bottom:14px;">압류금지 250만원 계산</div>
+
+  <div class="reveal r3 card">
+    <div class="h3" style="margin-bottom:10px;">💵 지급 계산</div>
+    <div class="body-text">이○○ 예금: 300만원<br>압류금지 한도: 250만원<br><span style="font-size:20px;font-weight:800;color:var(--blue-primary);">채권자에게 줄 수 있는 금액: 50만원만</span><br>나머지 250만원: 이○○ 생활 보호</div>
+  </div>
+
+  <div class="reveal r4 ok-box">
+    <div class="ok-title">💡 생계비계좌</div>
+    <div class="small-text" style="color:var(--text-secondary);">민사집행법 제246조의2 (2026.02.01 신설): 이○○가 생계비계좌를 개설했다면 → 계좌 잔액 압류 불가 → 300만원 전부 보호 → 전부명령 효력 없음</div>
+  </div>
+
+  <div class="reveal r5 warn-box">
+    <div class="warn-title">⚠️ 주의</div>
+    <div class="small-text" style="color:var(--text-secondary);">구버전 자료에 185만원이라고 나와 있으면 틀린 정보입니다. 2026년 2월부터 250만원으로 변경되었습니다.</div>
+  </div>
+</div>
+`);
+
+addSlide('케이스5 핵심정리', `
+<div class="slide-inner">
+  <div class="reveal r1 eyebrow">📋 핵심 정리</div>
+  <div class="reveal r2 h2" style="margin-bottom:16px;">케이스 5 정리</div>
+
+  <div class="reveal r3 card">
+  <div class="table-scroll">
+  <table class="cmp-table">
+    <tr><th>상황</th><th>처리 원칙</th><th>근거</th></tr>
+    <tr><td>법원 서류 도착</td><td>즉시 전산 출금정지</td><td>제112조③</td></tr>
+    <tr><td>특정성 없는 압류</td><td>지급 불가+7일내 법원 통지</td><td>제113조1호</td></tr>
+    <tr><td>추심명령</td><td>신분 확인 후 지급 가능</td><td>제115조</td></tr>
+    <tr><td>전부명령</td><td>확정증명서 필수</td><td>제115조 다목</td></tr>
+    <tr><td>체납처분+가압류</td><td>세무서 먼저/공탁 불가</td><td>제117조</td></tr>
+    <tr><td>250만원 이하</td><td>압류금지-지급 거절</td><td>제120조</td></tr>
+  </table>
+  </div>
+  </div>
+
+  <div class="reveal r4 key-line">
+    <span class="label">🔑 오늘의 한 줄</span>
+    법원 서류 = <b style="color:#9DC4FF;">즉시 잠근다</b>. 전부명령 = 확정증명서 없으면 못 준다. 세무서 = 항상 먼저.
+  </div>
+</div>
+`);
+/* ===================== 마무리 ===================== */
+
+addSlide('마무리 표지', `
+<div class="case-cover">
+  <div class="bg-deco float" style="width:240px;height:240px;top:10%;left:-60px;"></div>
+  <div class="bg-deco float" style="width:180px;height:180px;bottom:10%;right:-40px;animation-delay:1s;"></div>
+  <div class="reveal r1" style="font-size:64px;margin-bottom:12px;">🏁</div>
+  <div class="reveal r2 case-tag">마무리</div>
+  <div class="reveal r3 case-title">오늘의 핵심<br>5가지</div>
+</div>
+`);
+
+/* 핵심 5가지 — 3슬라이드로 분할 (2+2+1, 카드 대형화) */
+addSlide('핵심5가지 1/3', `
+<div class="slide-inner vcenter">
+  <div class="reveal r1 eyebrow">🎯 MUST-KNOW · 1/3</div>
+  <div class="reveal r2 h1" style="margin-bottom:28px;">반드시 기억해야 할<br>핵심 5가지</div>
+
+  <div class="reveal r3 card pop" style="border-left:8px solid var(--blue-primary);">
+    <div class="badge badge-blue" style="margin-bottom:12px;">케이스 1</div>
+    <div class="h2" style="margin-bottom:10px;">대리 권한 확인</div>
+    <div class="body-text">예금주 본인이 아닌 경우 → 위임장+인감증명서 (제53조의2, 제36조)</div>
+  </div>
+  <div class="reveal r4 card pop" style="border-left:8px solid var(--amber-strong);">
+    <div class="badge badge-amber" style="margin-bottom:12px;">케이스 2</div>
+    <div class="h2" style="margin-bottom:10px;">멈추고 책임자에게</div>
+    <div class="body-text">이상한 지급 요청 → 멈추고 책임자에게 보고 (제37조 7호)</div>
+  </div>
+</div>
+`);
+
+addSlide('핵심5가지 2/3', `
+<div class="slide-inner vcenter">
+  <div class="reveal r1 eyebrow">🎯 MUST-KNOW · 2/3</div>
+  <div class="reveal r2 h1" style="margin-bottom:28px;">반드시 기억해야 할<br>핵심 5가지</div>
+
+  <div class="reveal r3 card pop" style="border-left:8px solid var(--green-strong);">
+    <div class="badge badge-green" style="margin-bottom:12px;">케이스 3</div>
+    <div class="h2" style="margin-bottom:10px;">질권자 해지통지 필수</div>
+    <div class="body-text">담보 잡힌 예금 → 질권자 해지통지 없으면 못 줌 (제79조, 제81조)</div>
+  </div>
+  <div class="reveal r4 card pop" style="border-left:8px solid var(--red-strong);">
+    <div class="badge badge-red" style="margin-bottom:12px;">케이스 4</div>
+    <div class="h2" style="margin-bottom:10px;">즉시 출금정지 + 상속인 전원</div>
+    <div class="body-text">예금주 사망 → 즉시 출금정지 → 상속인 전원 확인 (제111조①③)</div>
+  </div>
+</div>
+`);
+
+addSlide('핵심5가지 3/3', `
+<div class="slide-inner vcenter">
+  <div class="reveal r1 eyebrow">🎯 MUST-KNOW · 3/3</div>
+  <div class="reveal r2 h1" style="margin-bottom:28px;">반드시 기억해야 할<br>핵심 5가지</div>
+
+  <div class="reveal r3 card pop" style="border-left:8px solid var(--dark-accent);">
+    <div class="badge badge-gray" style="margin-bottom:12px;">케이스 5</div>
+    <div class="h2" style="margin-bottom:10px;">즉시 잠금 + 확정증명서</div>
+    <div class="body-text">법원 서류 도착 → 즉시 출금정지 → 전부명령은 확정증명서 (제112조③, 제115조)</div>
+  </div>
+  <div class="reveal r4 key-line" style="margin-top:8px;">
+    <span class="quote-mark">"</span>
+    <span class="label">✅ 5가지 모두의 공통점</span>
+    뭔가 이상하면 <b style="color:#9DC4FF;">먼저 멈추고</b>, 서류로 확인한다.
+  </div>
+</div>
+`);
+
+/* 자기 점검 카드 — 5+5 분할 */
+addSlide('자기점검카드 1/2', `
+<div class="slide-inner">
+  <div class="reveal r1 eyebrow">✏️ SELF CHECK · 1/2</div>
+  <div class="reveal r2 h1" style="margin-bottom:10px;">수강생 자기 점검 카드</div>
+  <div class="reveal r3 small-text" style="margin-bottom:20px;">수업이 끝난 후, 아래 항목을 스스로 체크해 보세요.</div>
+
+  <div class="reveal r4 card" id="selfCheckCard1">
+    <div class="table-scroll">
+    <table class="cmp-table" style="width:100%;">
+      <tr><th>항목</th><th style="text-align:center;">이해됨</th><th style="text-align:center;">한 번 더</th></tr>
+    </table>
+    </div>
+  </div>
+</div>
+`);
+
+addSlide('자기점검카드 2/2', `
+<div class="slide-inner">
+  <div class="reveal r1 eyebrow">✏️ SELF CHECK · 2/2</div>
+  <div class="reveal r2 h1" style="margin-bottom:10px;">수강생 자기 점검 카드</div>
+  <div class="reveal r3 small-text" style="margin-bottom:20px;">수업이 끝난 후, 아래 항목을 스스로 체크해 보세요.</div>
+
+  <div class="reveal r4 card" id="selfCheckCard2">
+    <div class="table-scroll">
+    <table class="cmp-table" style="width:100%;">
+      <tr><th>항목</th><th style="text-align:center;">이해됨</th><th style="text-align:center;">한 번 더</th></tr>
+    </table>
+    </div>
+  </div>
+</div>
+`);
+
+/* 빠른 참조표 1 — 10개 조문을 5+5 분할 */
+addSlide('빠른참조표1-1', `
+<div class="slide-inner">
+  <div class="reveal r1 eyebrow">📖 QUICK REFERENCE · 1-A</div>
+  <div class="reveal r2 h2" style="margin-bottom:18px;">핵심 조문 빠른 참조표 (1)</div>
+
+  <div class="reveal r3 card">
+  <div class="table-scroll">
+  <table class="cmp-table">
+    <tr><th>조문</th><th>주제</th><th>핵심 내용</th></tr>
+    <tr><td>제6조</td><td>제 증명서</td><td>3개월 이내 발급 서류만 유효</td></tr>
+    <tr><td>제8조</td><td>미성년자</td><td>법정대리인 동의·대리 필요</td></tr>
+    <tr><td>제36조</td><td>일반지급 절차</td><td>통장+청구서+인감+비밀번호 확인</td></tr>
+    <tr><td>제37조</td><td>현금지급 유의</td><td>8개 체크리스트</td></tr>
+    <tr><td>제39조</td><td>편의취급</td><td>무통장·무인감—1일 100만원 이하</td></tr>
+  </table>
+  </div>
+  </div>
+</div>
+`);
+
+addSlide('빠른참조표1-2', `
+<div class="slide-inner">
+  <div class="reveal r1 eyebrow">📖 QUICK REFERENCE · 1-B</div>
+  <div class="reveal r2 h2" style="margin-bottom:18px;">핵심 조문 빠른 참조표 (1)</div>
+
+  <div class="reveal r3 card">
+  <div class="table-scroll">
+  <table class="cmp-table">
+    <tr><th>조문</th><th>주제</th><th>핵심 내용</th></tr>
+    <tr><td>제53조의2</td><td>중도해지 대리</td><td>원칙 불가 / 위임장+인감증명서</td></tr>
+    <tr><td>제76조</td><td>질권설정</td><td>책임자 승낙 필요</td></tr>
+    <tr><td>제78조</td><td>질권설정 유의</td><td>사고신고·인감·중복 질권 확인</td></tr>
+    <tr><td>제79조</td><td>질권설정 예금 지급정지</td><td>질권자 해지통지 전 지급 불가</td></tr>
+    <tr><td>제80조</td><td>질권 해지</td><td>통지서+전산 해지</td></tr>
+  </table>
+  </div>
+  </div>
+</div>
+`);
+
+/* 빠른 참조표 2 — 13개 조문을 5+5+3 분할 */
+addSlide('빠른참조표2-1', `
+<div class="slide-inner">
+  <div class="reveal r1 eyebrow">📖 QUICK REFERENCE · 2-A</div>
+  <div class="reveal r2 h2" style="margin-bottom:18px;">핵심 조문 빠른 참조표 (2)</div>
+
+  <div class="reveal r3 card">
+  <div class="table-scroll">
+  <table class="cmp-table">
+    <tr><th>조문</th><th>주제</th><th>핵심 내용</th></tr>
+    <tr><td>제81조</td><td>질권예금 지급</td><td>질권자에게 이의 없음 확인 후 지급</td></tr>
+    <tr><td>제95조</td><td>사고신고 처리</td><td>즉시 전산등록+출금정지</td></tr>
+    <tr><td>제111조①</td><td>사망 인지</td><td>즉시 전산 출금정지</td></tr>
+    <tr><td>제111조②</td><td>상속인 확인</td><td>가족관계증명서 등 서류</td></tr>
+    <tr><td>제111조③</td><td>공동상속인 지급</td><td>전원 연서 손해담보부약정서</td></tr>
+  </table>
+  </div>
+  </div>
+</div>
+`);
+
+addSlide('빠른참조표2-2', `
+<div class="slide-inner">
+  <div class="reveal r1 eyebrow">📖 QUICK REFERENCE · 2-B</div>
+  <div class="reveal r2 h2" style="margin-bottom:18px;">핵심 조문 빠른 참조표 (2)</div>
+
+  <div class="reveal r3 card">
+  <div class="table-scroll">
+  <table class="cmp-table">
+    <tr><th>조문</th><th>주제</th><th>핵심 내용</th></tr>
+    <tr><td>제111조f</td><td>소액상속 500만원</td><td>1/2 이상 내점 (2025.08.29)</td></tr>
+    <tr><td>제111조g</td><td>소액상속 300만원</td><td>1인 방문 가능 (2025.08.29)</td></tr>
+    <tr><td>제111조⑨</td><td>유증 처리</td><td>서류 5종 / 공정증서→검인 불필요</td></tr>
+    <tr><td>제112조③</td><td>압류명령 접수</td><td>즉시 전산 출금정지+예금주 통지</td></tr>
+    <tr><td>제113조</td><td>응할 수 없는 경우</td><td>7일 내 법원 서면 통지</td></tr>
+  </table>
+  </div>
+  </div>
+</div>
+`);
+
+addSlide('빠른참조표2-3', `
+<div class="slide-inner">
+  <div class="reveal r1 eyebrow">📖 QUICK REFERENCE · 2-C</div>
+  <div class="reveal r2 h2" style="margin-bottom:18px;">핵심 조문 빠른 참조표 (2)</div>
+
+  <div class="reveal r3 card">
+  <div class="table-scroll">
+  <table class="cmp-table">
+    <tr><th>조문</th><th>주제</th><th>핵심 내용</th></tr>
+    <tr><td>제115조</td><td>압류채권자 지급</td><td>확정증명서 필수(전부명령)</td></tr>
+    <tr><td>제117조</td><td>체납처분</td><td>압류명령 준용 처리/세금 우선</td></tr>
+    <tr><td>제120조</td><td>압류금지 채권</td><td>250만원 이하 응하지 않음</td></tr>
+  </table>
+  </div>
+  </div>
+</div>
+`);
+
+/* 추가 토론 — 2+2 분할 */
+addSlide('추가토론 1/2', `
+<div class="slide-inner vcenter">
+  <div class="reveal r1 eyebrow">🗣️ EXTRA DISCUSSION · 1/2</div>
+  <div class="reveal r2 h1" style="margin-bottom:8px;">추가 토론 주제</div>
+  <div class="reveal r3 small-text" style="margin-bottom:24px;">시간이 남을 경우</div>
+
+  <div class="reveal r4 discuss-card">
+    <div class="discuss-q"><span class="discuss-num">1</span>예금주가 전화로 "아내에게 전액 지급해도 됩니다"라고 말했다. 지급해도 될까요?</div>
+    <div class="small-text" style="margin-top:12px;margin-left:46px;">핵심: 전화 확인의 한계 / 서면 위임장 원칙</div>
+  </div>
+  <div class="reveal r5 discuss-card">
+    <div class="discuss-q"><span class="discuss-num">2</span>상속인 중 한 명이 "나머지 상속인이 동의했으니 나한테 전부 줘도 된다"고 주장한다. 어떻게 처리할까요?</div>
+    <div class="small-text" style="margin-top:12px;margin-left:46px;">핵심: 공동상속인 전원 연서 원칙 / 제111조③</div>
+  </div>
+</div>
+`);
+
+addSlide('추가토론 2/2', `
+<div class="slide-inner vcenter">
+  <div class="reveal r1 eyebrow">🗣️ EXTRA DISCUSSION · 2/2</div>
+  <div class="reveal r2 h1" style="margin-bottom:8px;">추가 토론 주제</div>
+  <div class="reveal r3 small-text" style="margin-bottom:24px;">시간이 남을 경우</div>
+
+  <div class="reveal r4 discuss-card">
+    <div class="discuss-q"><span class="discuss-num">3</span>압류가 걸린 계좌에서 예금주가 자동이체 출금이 나가야 한다고 주장한다. 어떻게 해야 할까요?</div>
+    <div class="small-text" style="margin-top:12px;margin-left:46px;">핵심: 출금정지의 범위 / 제112조</div>
+  </div>
+  <div class="reveal r5 discuss-card">
+    <div class="discuss-q"><span class="discuss-num">4</span>고객이 "이 예금은 내 아내 명의인데, 이혼소송 중이라 내가 먼저 찾을 권리가 있다"고 주장한다.</div>
+    <div class="small-text" style="margin-top:12px;margin-left:46px;">핵심: 예금주 동일성 원칙 / 배우자도 대리인 지위 없음</div>
+  </div>
+</div>
+`);
+
+addSlide('마치며', `
+<div class="slide-inner vcenter">
+  <div class="case-cover" style="height:auto;padding:10px 10px 30px;">
+    <div class="reveal r1" style="font-size:60px;margin-bottom:18px;">🙌</div>
+    <div class="reveal r2 key-line" style="text-align:left;margin-bottom:28px;max-width:1000px;">
+      법률을 다 외울 필요는 없습니다.<br>
+      하지만 오늘의 핵심 5가지만큼은 꼭 기억하세요.<br><br>
+      <span style="color:#9DC4FF;">창구에서 이상하다고 느끼는 순간, 그 감각을 믿으세요.</span>
+    </div>
+  </div>
+
+  <div class="reveal r3 term-card"><div class="term-icon">📘</div><div><div class="term-name">교재 안내</div><div class="term-desc">수신업무방법서 2026년 1월 30일 현행 기준으로 작성되었습니다.</div></div></div>
+  <div class="reveal r4 term-card"><div class="term-icon">🎓</div><div><div class="term-name">대상</div><div class="term-desc">새마을금고 수신업무 신입직원 2시간 토론형 교육을 위해 제작되었습니다.</div></div></div>
+
+  <button class="reveal-btn" onclick="restartLecture()" style="width:100%;justify-content:center;margin-top:22px;background:var(--blue-primary);">🔁 처음부터 다시보기</button>
+</div>
+`);
+
+</script>
+<script>
+// ===== 앱 동작 로직 =====
+(function(){
+  let current = 0;
+  const total = SLIDES.length;
+  const appEl = document.getElementById('app');
+  const progressBar = document.getElementById('progressBar');
+  const navCounter = document.getElementById('navCounter');
+  const navSection = document.getElementById('navSection');
+  const btnPrev = document.getElementById('btnPrev');
+  const btnNext = document.getElementById('btnNext');
+  const tocOverlay = document.getElementById('tocOverlay');
+  const tocList = document.getElementById('tocList');
+
+  // 슬라이드 DOM 렌더링 (1회)
+  SLIDES.forEach((s, idx) => {
+    const div = document.createElement('div');
+    div.className = 'slide';
+    div.dataset.index = idx;
+    div.innerHTML = s.html;
+    appEl.appendChild(div);
+  });
+
+  function buildSelfCheckTable(){
+    const rows1 = [
+      "대리인 지급—위임장+인감증명서 원칙",
+      "편의취급—1일 100만원 이하, 2회",
+      "질권설정 예금 지급정지 원칙",
+      "사망 인지→즉시 출금정지 원칙",
+      "소액상속 기준—500만원, 300만원"
+    ];
+    const rows2 = [
+      "특정유증→수증자에게 직접 지급 안 됨",
+      "법원 서류→즉시 출금정지",
+      "전부명령→확정증명서 필수",
+      "체납처분→가압류보다 우선",
+      "압류금지 예금→250만원 이하(2026년 기준)"
+    ];
+    function fill(selector, rows){
+      const table = document.querySelector(selector);
+      if(!table) return;
+      rows.forEach((label) => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `<td>${label}</td>
+          <td style="text-align:center;"><input type="checkbox" style="width:28px;height:28px;accent-color:var(--blue-primary);"></td>
+          <td style="text-align:center;"><input type="checkbox" style="width:28px;height:28px;accent-color:var(--amber-strong);"></td>`;
+        table.appendChild(tr);
+      });
+    }
+    fill('#selfCheckCard1 table', rows1);
+    fill('#selfCheckCard2 table', rows2);
+  }
+  buildSelfCheckTable();
+
+  function renderToc(){
+    tocList.innerHTML = '';
+    SLIDES.forEach((s, idx) => {
+      const item = document.createElement('div');
+      item.className = 'toc-item' + (idx === current ? ' current' : '');
+      item.innerHTML = `<div class="toc-num">${idx+1}</div><div class="toc-label">${s.section}</div>`;
+      item.onclick = () => { goTo(idx); closeToc(); };
+      tocList.appendChild(item);
+    });
+  }
+
+  function openToc(){ renderToc(); tocOverlay.classList.add('show'); }
+  function closeToc(){ tocOverlay.classList.remove('show'); }
+  tocOverlay.addEventListener('click', (e) => { if(e.target === tocOverlay) closeToc(); });
+
+  function fitActive(el){
+    const inner = el.querySelector('.slide-inner, .case-cover');
+    if(!inner) return;
+    inner.style.transform = '';
+    inner.style.transformOrigin = 'top center';
+    if(inner.classList.contains('case-cover')) return;
+    const avail = el.clientHeight - 96;       // 무대 높이 - 하단 nav
+    const needed = inner.scrollHeight;        // 콘텐츠 실제 높이
+    if(needed > avail){
+      el.classList.remove('center-content');
+      const scale = Math.max(0.62, avail / needed);
+      inner.style.transform = 'scale(' + scale + ')';
+    } else if(needed < avail * 0.78){
+      // 충분히 여유 있을 때만 세로 중앙 배치
+      el.classList.add('center-content');
+    } else {
+      el.classList.remove('center-content');
+    }
+  }
+
+  function render(){
+    const slides = appEl.querySelectorAll('.slide');
+    slides.forEach((el, idx) => {
+      el.classList.remove('active','prev');
+      if(idx === current){
+        el.classList.add('active');
+        el.scrollTop = 0;
+        requestAnimationFrame(() => fitActive(el));
+      } else if(idx === current - 1){
+        el.classList.add('prev');
+      }
+    });
+    progressBar.style.width = ((current+1)/total*100) + '%';
+    navCounter.textContent = (current+1) + ' / ' + total;
+    navSection.textContent = SLIDES[current].section;
+    btnPrev.disabled = current === 0;
+    btnNext.disabled = false;
+    btnNext.textContent = (current === total-1) ? '↺' : '›';
+  }
+
+  function goTo(idx){
+    if(idx < 0) idx = 0;
+    if(idx > total-1) idx = total-1;
+    current = idx;
+    render();
+  }
+
+  function next(){
+    if(current === total-1){ goTo(0); return; }
+    goTo(current+1);
+  }
+  function prev(){ goTo(current-1); }
+
+  btnNext.addEventListener('click', next);
+  btnPrev.addEventListener('click', prev);
+  document.getElementById('navMid').addEventListener('click', openToc);
+
+  // 키보드 네비게이션 (일반 키보드 + 프레젠테이션 클리커 대응)
+  document.addEventListener('keydown', (e) => {
+    const k = e.key;
+    if(k === 'ArrowRight' || k === ' ' || k === 'PageDown' || k === 'Spacebar'){
+      e.preventDefault(); next();
+    } else if(k === 'ArrowLeft' || k === 'PageUp' || k === 'Backspace'){
+      e.preventDefault(); prev();
+    } else if(k === 'Escape'){
+      closeToc();
+    } else if(k === 'Home'){
+      e.preventDefault(); goTo(0);
+    } else if(k === 'End'){
+      e.preventDefault(); goTo(total-1);
+    } else if(k === 'f' || k === 'F'){
+      toggleFullscreen();
+    }
+  });
+
+  // 풀스크린 토글 (클리커로 직접 호출은 불가하지만, 발표 시작 전 1회 수동 진입용)
+  function toggleFullscreen(){
+    const docEl = document.documentElement;
+    if(!document.fullscreenElement){
+      (docEl.requestFullscreen || docEl.webkitRequestFullscreen || docEl.msRequestFullscreen || function(){}).call(docEl);
+    } else {
+      (document.exitFullscreen || document.webkitExitFullscreen || document.msExitFullscreen || function(){}).call(document);
+    }
+  }
+  // 화면 더블클릭으로도 풀스크린 토글 (마우스 포인터 모드로 들어온 클릭 대응)
+  // 화면 빈 영역 더블클릭으로도 풀스크린 토글 (버튼/카드 등 인터랙티브 요소는 제외)
+  appEl.addEventListener('dblclick', (e) => {
+    if(e.target.closest('button, .ox-btn, .reveal-btn, .toc-item, input, a')) return;
+    toggleFullscreen();
+  });
+
+  // 스와이프 네비게이션
+  let touchStartX = 0, touchStartY = 0;
+  appEl.addEventListener('touchstart', (e) => {
+    touchStartX = e.touches[0].clientX;
+    touchStartY = e.touches[0].clientY;
+  }, {passive:true});
+  appEl.addEventListener('touchend', (e) => {
+    const dx = e.changedTouches[0].clientX - touchStartX;
+    const dy = e.changedTouches[0].clientY - touchStartY;
+    if(Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy)*1.5){
+      if(dx < 0) next(); else prev();
+    }
+  }, {passive:true});
+
+  render();
+
+  // 첫 진입 스와이프 힌트
+  setTimeout(() => {
+    const hint = document.createElement('div');
+    hint.className = 'swipe-hint';
+    hint.innerHTML = '← 좌우로 스와이프 가능 →';
+    document.body.appendChild(hint);
+    setTimeout(() => hint.remove(), 4000);
+  }, 600);
+
+  // ===== OX 퀴즈 인터랙션 =====
+  function spawnConfetti(anchorEl){
+    const activeSlide = appEl.querySelector('.slide.active');
+    if(!activeSlide) return;
+    const colors = ['#3182F6','#0AC282','#F5A623','#F04452','#9DC4FF'];
+    const rect = anchorEl.getBoundingClientRect();
+    const slideRect = activeSlide.getBoundingClientRect();
+    const originX = rect.left - slideRect.left + rect.width/2;
+    for(let i=0;i<22;i++){
+      const c = document.createElement('div');
+      c.className = 'confetti';
+      c.style.left = (originX + (Math.random()*240-120)) + 'px';
+      c.style.background = colors[i % colors.length];
+      c.style.animationDelay = (Math.random()*0.25) + 's';
+      c.style.width = c.style.height = (8 + Math.random()*8) + 'px';
+      activeSlide.appendChild(c);
+      setTimeout(() => c.remove(), 2000);
+    }
+  }
+
+  window.answerOX = function(idx, userAnswer){
+    const item = OX_QUIZ[idx];
+    const row = document.getElementById('oxRow-' + idx);
+    const feedback = document.getElementById('oxFeedback-' + idx);
+    if(row.dataset.answered === '1') return; // 중복 클릭 방지
+    row.dataset.answered = '1';
+
+    const btnO = row.querySelector('.o-btn');
+    const btnX = row.querySelector('.x-btn');
+    const isCorrect = (userAnswer === item.a);
+
+    if(userAnswer){ btnO.classList.add('selected-o'); } else { btnX.classList.add('selected-x'); }
+    const selectedBtn = userAnswer ? btnO : btnX;
+
+    if(isCorrect){
+      selectedBtn.classList.add('correct-flash');
+      feedback.classList.add('show','correct');
+      feedback.innerHTML = '✅ 정답입니다! ' + item.exp;
+      spawnConfetti(row);
+    } else {
+      selectedBtn.classList.add('wrong-flash');
+      feedback.classList.add('show','wrong');
+      const correctLabel = item.a ? 'O' : 'X';
+      feedback.innerHTML = '❌ 정답은 <b>' + correctLabel + '</b> 입니다. ' + item.exp;
+      // 정답 쪽도 살짝 강조
+      const correctBtn = item.a ? btnO : btnX;
+      correctBtn.style.borderColor = 'var(--green-strong)';
+    }
+    // 피드백 펼쳐진 후 화면에 맞게 재조정
+    const activeSlide = appEl.querySelector('.slide.active');
+    if(activeSlide) requestAnimationFrame(() => fitActive(activeSlide));
+  };
+
+  // ===== 정답/멘트 토글 =====
+  window.toggleAnswer = function(id){
+    const el = document.getElementById(id);
+    if(!el) return;
+    el.classList.toggle('show');
+    const activeSlide = appEl.querySelector('.slide.active');
+    if(activeSlide) requestAnimationFrame(() => fitActive(activeSlide));
+  };
+
+  // ===== 처음부터 다시보기 =====
+  window.restartLecture = function(){
+    goTo(0);
+    window.scrollTo(0,0);
+  };
+
+  // ===== 목차 버튼 (전역 노출, 필요시 다른 곳에서 호출) =====
+  window.openToc = openToc;
+})();
+
+</script>
+</body>
+</html>
