@@ -2,7 +2,12 @@
 <html lang="ko">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#0E1116">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="format-detection" content="telephone=no">
 <title>새마을금고 수신업무 케이스 스터디</title>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
 <style>
@@ -630,6 +635,209 @@ html,body{
 .table-scroll{overflow-x:auto;-webkit-overflow-scrolling:touch;}
 
 ::-webkit-scrollbar{width:0;height:0;}
+
+
+/* ===== 모바일 호환/시인성 보강 패치 ===== */
+.fullscreen-fab{
+  position:absolute;
+  top:calc(0.75rem + env(safe-area-inset-top));
+  right:0.875rem;
+  z-index:65;
+  border:none;
+  border-radius:999px;
+  padding:0.625rem 0.875rem;
+  background:rgba(25,31,40,0.82);
+  color:#fff;
+  font-size:0.9375rem;
+  font-weight:800;
+  letter-spacing:-0.01em;
+  box-shadow:var(--shadow-float);
+  backdrop-filter:blur(0.75rem);
+  cursor:pointer;
+  -webkit-tap-highlight-color:transparent;
+}
+.fullscreen-fab:active{transform:scale(0.96);}
+.fs-btn{background:var(--dark-accent);color:#fff;}
+.fs-toast{
+  position:absolute;
+  left:50%;
+  bottom:calc(5.25rem + env(safe-area-inset-bottom));
+  transform:translateX(-50%) translateY(1rem);
+  background:rgba(25,31,40,0.92);
+  color:#fff;
+  border-radius:999px;
+  padding:0.75rem 1rem;
+  font-size:0.9375rem;
+  font-weight:800;
+  z-index:90;
+  opacity:0;
+  pointer-events:none;
+  transition:opacity .22s ease, transform .22s ease;
+  max-width:calc(100vw - 2rem);
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis;
+}
+.fs-toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+body.presentation-fullscreen{background:#0E1116;}
+body.presentation-fullscreen .fullscreen-fab,
+:fullscreen .fullscreen-fab,
+:-webkit-full-screen .fullscreen-fab{background:rgba(49,130,246,0.88);}
+
+@supports (height:100dvh){
+  html,body,#stage,#app{height:100dvh;}
+}
+
+@media (max-width: 768px){
+  html{font-size:clamp(14px, 4vw, 18px);}
+  html,body{
+    min-height:100svh;
+    overflow:hidden;
+    touch-action:manipulation;
+  }
+  #stage{align-items:stretch;justify-content:stretch;}
+  #app{width:100vw;height:100svh;}
+  @supports (height:100dvh){#app{height:100dvh;}}
+  .progress-wrap{height:0.25rem;}
+  .fullscreen-fab{
+    display:inline-flex;
+    align-items:center;
+    gap:0.25rem;
+    top:calc(0.55rem + env(safe-area-inset-top));
+    right:0.625rem;
+    padding:0.5rem 0.75rem;
+    font-size:0.8125rem;
+  }
+  .slide{
+    transform:translateY(1.25rem) scale(0.98);
+    overflow-y:auto;
+    -webkit-overflow-scrolling:touch;
+    overscroll-behavior:contain;
+  }
+  .slide-inner{
+    width:100%;
+    padding:calc(1.35rem + env(safe-area-inset-top)) 1rem calc(5.75rem + env(safe-area-inset-bottom));
+  }
+  .slide-inner.vcenter{justify-content:flex-start;}
+  .slide.center-content{justify-content:flex-start;padding-bottom:calc(5.75rem + env(safe-area-inset-bottom));}
+  .nav-bar{
+    padding:0.55rem 0.625rem calc(0.55rem + env(safe-area-inset-bottom));
+    gap:0.45rem;
+    background:rgba(255,255,255,0.95);
+  }
+  .nav-btn{
+    width:2.75rem;
+    height:2.75rem;
+    font-size:1.35rem;
+    touch-action:manipulation;
+  }
+  .nav-mid{min-width:0;gap:0.05rem;}
+  .nav-counter{font-size:0.875rem;}
+  .nav-section-name{font-size:0.75rem;max-width:9.5rem;}
+  .toc-sheet{
+    max-height:86dvh;
+    padding:0.875rem 1rem calc(1rem + env(safe-area-inset-bottom));
+    border-radius:1.25rem 1.25rem 0 0;
+  }
+  #tocList{grid-template-columns:1fr;gap:0.125rem;}
+  .toc-title{font-size:1.125rem;margin-bottom:0.75rem;}
+  .toc-item{padding:0.7rem 0.65rem;}
+  .toc-num{width:1.75rem;height:1.75rem;font-size:0.75rem;}
+  .toc-label{font-size:0.9375rem;}
+
+  .eyebrow{font-size:0.9375rem;padding:0.5rem 0.75rem;margin-bottom:0.75rem;border-radius:1.25rem;}
+  .h1{font-size:2.2rem;line-height:1.23;letter-spacing:-0.04rem;}
+  .h2{font-size:1.75rem;line-height:1.32;letter-spacing:-0.025rem;}
+  .h3{font-size:1.28rem;line-height:1.38;}
+  .body-text{font-size:1.05rem;line-height:1.55;}
+  .small-text{font-size:0.9rem;line-height:1.5;}
+  .badge{font-size:0.875rem;padding:0.45rem 0.72rem;border-radius:0.75rem;}
+
+  .card,.card-flat{border-radius:1.05rem;padding:1rem 1.05rem;margin-bottom:0.8rem;}
+  .key-line{border-radius:1.05rem;padding:1.2rem 1.1rem;font-size:1.05rem;line-height:1.55;}
+  .key-line .label{font-size:0.8rem;margin-bottom:0.45rem;}
+  .key-line .quote-mark{font-size:3rem;right:0.65rem;top:0.1rem;}
+  .warn-box,.ok-box{border-radius:0.95rem;padding:1rem 1.05rem;margin-bottom:0.75rem;border-left-width:4px;}
+  .warn-title,.ok-title{font-size:1.05rem;}
+
+  .case-cover{
+    min-height:100%;
+    padding:calc(2.4rem + env(safe-area-inset-top)) 1rem calc(5.5rem + env(safe-area-inset-bottom));
+  }
+  .case-cover .case-num-huge{font-size:6.8rem;margin-bottom:0.15rem;}
+  .case-cover .case-tag{font-size:0.95rem;letter-spacing:0.18rem;margin-bottom:0.9rem;}
+  .case-cover .case-title{font-size:2.75rem;line-height:1.22;margin-bottom:1rem;}
+  .case-cover .case-meta{font-size:0.82rem;padding:0.75rem 1rem;border-radius:1rem;}
+  .case-progress-dots{margin-top:1rem;}
+
+  .term-card{border-radius:1rem;padding:1rem;gap:0.8rem;margin-bottom:0.7rem;}
+  .term-icon{width:2.8rem;height:2.8rem;border-radius:0.8rem;font-size:1.4rem;}
+  .term-name{font-size:1.15rem;margin-bottom:0.25rem;}
+  .term-desc{font-size:0.92rem;line-height:1.5;}
+  .speech-bubble{border-radius:1.05rem;padding:1.1rem;font-size:1.05rem;line-height:1.55;}
+  .speaker-avatar{width:2.4rem;height:2.4rem;font-size:1.2rem;}
+  .speaker-name{font-size:0.85rem;}
+
+  .discuss-card{border-radius:1rem;padding:1rem;margin-bottom:0.75rem;}
+  .discuss-q{gap:0.75rem;font-size:1.12rem;line-height:1.45;}
+  .discuss-num{width:2.1rem;height:2.1rem;font-size:1rem;}
+  .check-item{gap:0.75rem;padding:0.8rem 0;}
+  .check-num{width:2rem;height:2rem;font-size:0.9rem;}
+  .check-text{font-size:1rem;line-height:1.45;}
+
+  .table-scroll{overflow-x:auto;-webkit-overflow-scrolling:touch;margin:0 -0.2rem;padding:0 0.2rem 0.25rem;}
+  .table-scroll .cmp-table{min-width:38rem;}
+  .cmp-table th{font-size:0.78rem;padding:0.75rem 0.65rem;}
+  .cmp-table td{font-size:0.85rem;line-height:1.42;padding:0.8rem 0.65rem;}
+
+  .timeline{padding-left:1.7rem;}
+  .timeline::before{left:0.4rem;}
+  .tl-item{margin-bottom:0.9rem;}
+  .tl-dot{left:-1.25rem;width:0.95rem;height:0.95rem;border-width:2px;}
+
+  .ox-row{gap:0.75rem;margin:1rem auto;max-width:100%;}
+  .ox-btn{font-size:3.2rem;padding:1.55rem 0;border-radius:1.2rem;border-width:2px;}
+  .quiz-feedback{font-size:0.98rem;padding:1rem;border-radius:1rem;margin-top:0.75rem;}
+  .option-grid{gap:0.55rem;}
+  .option-card{border-radius:0.95rem;padding:1rem;gap:0.75rem;font-size:1rem;}
+  .option-num{width:2.05rem;height:2.05rem;font-size:0.9rem;border-radius:0.6rem;}
+  .reveal-btn{width:100%;justify-content:center;font-size:1rem;padding:1rem 1.15rem;border-radius:0.95rem;margin-top:0.8rem;}
+  .fs-toast{bottom:calc(4.75rem + env(safe-area-inset-bottom));font-size:0.82rem;}
+  .swipe-hint{bottom:calc(4.65rem + env(safe-area-inset-bottom));right:0.75rem;font-size:0.75rem;}
+
+  body.presentation-fullscreen .nav-bar{
+    background:rgba(255,255,255,0.86);
+    padding-top:0.42rem;
+  }
+}
+
+@media (max-width: 420px){
+  html{font-size:clamp(13px, 3.75vw, 16px);}
+  .h1{font-size:2rem;}
+  .h2{font-size:1.58rem;}
+  .body-text{font-size:1rem;}
+  .slide-inner{padding-left:0.85rem;padding-right:0.85rem;}
+  .nav-btn{width:2.55rem;height:2.55rem;font-size:1.2rem;}
+  .nav-section-name{max-width:7.4rem;}
+  .case-cover .case-title{font-size:2.45rem;}
+  .case-cover .case-num-huge{font-size:5.9rem;}
+  .fullscreen-fab{font-size:0.75rem;padding:0.45rem 0.65rem;}
+}
+
+@media (orientation: landscape) and (max-height: 520px){
+  html{font-size:clamp(12px, 2.4vw, 15px);}
+  .slide-inner{padding:calc(0.9rem + env(safe-area-inset-top)) 1.25rem calc(4.35rem + env(safe-area-inset-bottom));}
+  .case-cover{padding:calc(1.1rem + env(safe-area-inset-top)) 1.25rem calc(4rem + env(safe-area-inset-bottom));}
+  .case-cover .case-title{font-size:2.2rem;}
+  .case-cover .case-num-huge{font-size:5.2rem;}
+  .h1{font-size:1.9rem;}
+  .h2{font-size:1.5rem;}
+  .body-text{font-size:0.92rem;}
+  .nav-bar{padding-top:0.35rem;padding-bottom:calc(0.35rem + env(safe-area-inset-bottom));}
+  .nav-btn{width:2.25rem;height:2.25rem;font-size:1.05rem;}
+  .fullscreen-fab{display:none;}
+}
+
 </style>
 </head>
 <body>
@@ -637,6 +845,7 @@ html,body{
 <div id="stage">
   <div id="app">
     <div class="progress-wrap"><div class="progress-bar" id="progressBar"></div></div>
+    <button class="fullscreen-fab" id="btnFullscreenFab" type="button" aria-label="전체화면 전환">⛶ 전체화면</button>
 
     <div class="nav-bar">
       <button class="nav-btn" id="btnPrev" aria-label="이전">‹</button>
@@ -645,7 +854,10 @@ html,body{
         <div class="nav-section-name" id="navSection">표지</div>
       </div>
       <button class="nav-btn primary" id="btnNext" aria-label="다음">›</button>
+      <button class="nav-btn fs-btn" id="btnFullscreen" type="button" aria-label="전체화면 전환">⛶</button>
     </div>
+
+    <div class="fs-toast" id="fsToast" role="status" aria-live="polite"></div>
 
     <div class="toc-overlay" id="tocOverlay">
       <div class="toc-sheet" id="tocSheet">
@@ -2132,6 +2344,9 @@ addSlide('마치며', `
   const navSection = document.getElementById('navSection');
   const btnPrev = document.getElementById('btnPrev');
   const btnNext = document.getElementById('btnNext');
+  const btnFullscreen = document.getElementById('btnFullscreen');
+  const btnFullscreenFab = document.getElementById('btnFullscreenFab');
+  const fsToast = document.getElementById('fsToast');
   const tocOverlay = document.getElementById('tocOverlay');
   const tocList = document.getElementById('tocList');
 
@@ -2205,7 +2420,9 @@ addSlide('마치며', `
     inner.style.flex = '0 0 auto';
     inner.style.alignSelf = 'flex-start';
     inner.style.height = 'auto';
-    const avail = el.clientHeight - 150;      // 무대 높이 - 하단 nav - 여유 마진
+    const navH = document.querySelector('.nav-bar')?.offsetHeight || 0;
+    const isMobile = window.matchMedia('(max-width: 768px)').matches;
+    const avail = el.clientHeight - navH - (isMobile ? 22 : 34);      // 무대 높이 - 하단 nav - 여유 마진
     const needed = inner.scrollHeight;        // 콘텐츠 실제(자연) 높이
     const isVcenter = inner.classList.contains('vcenter');
     if(needed > avail){
@@ -2292,16 +2509,70 @@ addSlide('마치며', `
     }
   });
 
-  // 풀스크린 토글 (클리커로 직접 호출은 불가하지만, 발표 시작 전 1회 수동 진입용)
+  // 풀스크린 토글: Android/Chrome/Edge는 네이티브 fullscreen, iPhone Safari 등은 화면 집중용 pseudo fullscreen으로 대체
+  function getFullscreenElement(){
+    return document.fullscreenElement || document.webkitFullscreenElement || document.msFullscreenElement || null;
+  }
+  function updateFullscreenButton(){
+    const isFs = !!getFullscreenElement() || document.body.classList.contains('presentation-fullscreen');
+    if(btnFullscreen) btnFullscreen.textContent = isFs ? '↙' : '⛶';
+    if(btnFullscreenFab) btnFullscreenFab.textContent = isFs ? '↙ 축소' : '⛶ 전체화면';
+    document.body.classList.toggle('presentation-fullscreen', isFs);
+    const activeSlide = appEl.querySelector('.slide.active');
+    if(activeSlide) requestAnimationFrame(() => fitActive(activeSlide));
+  }
+  function showFsToast(message){
+    if(!fsToast) return;
+    fsToast.textContent = message;
+    fsToast.classList.add('show');
+    clearTimeout(showFsToast.timer);
+    showFsToast.timer = setTimeout(() => fsToast.classList.remove('show'), 1800);
+  }
+  function enterPseudoFullscreen(){
+    document.body.classList.add('presentation-fullscreen');
+    window.scrollTo(0,0);
+    updateFullscreenButton();
+    showFsToast('브라우저 제한으로 화면 집중 모드로 전환했습니다');
+  }
   function toggleFullscreen(){
     const docEl = document.documentElement;
-    if(!document.fullscreenElement){
-      (docEl.requestFullscreen || docEl.webkitRequestFullscreen || docEl.msRequestFullscreen || function(){}).call(docEl);
+    const fsEl = getFullscreenElement();
+    const request = docEl.requestFullscreen || docEl.webkitRequestFullscreen || docEl.msRequestFullscreen;
+    const exit = document.exitFullscreen || document.webkitExitFullscreen || document.msExitFullscreen;
+
+    if(fsEl || document.body.classList.contains('presentation-fullscreen')){
+      document.body.classList.remove('presentation-fullscreen');
+      if(fsEl && exit){
+        const result = exit.call(document);
+        if(result && result.catch) result.catch(() => {});
+      }
+      updateFullscreenButton();
+      return;
+    }
+
+    if(request){
+      try{
+        const result = request.call(docEl);
+        if(result && result.then){
+          result.then(() => { updateFullscreenButton(); showFsToast('전체화면으로 전환했습니다'); })
+                .catch(() => enterPseudoFullscreen());
+        } else {
+          setTimeout(() => { updateFullscreenButton(); showFsToast('전체화면으로 전환했습니다'); }, 80);
+        }
+      } catch(err){
+        enterPseudoFullscreen();
+      }
     } else {
-      (document.exitFullscreen || document.webkitExitFullscreen || document.msExitFullscreen || function(){}).call(document);
+      enterPseudoFullscreen();
     }
   }
-  // 화면 더블클릭으로도 풀스크린 토글 (마우스 포인터 모드로 들어온 클릭 대응)
+  ['fullscreenchange','webkitfullscreenchange','MSFullscreenChange'].forEach((name) => {
+    document.addEventListener(name, updateFullscreenButton);
+  });
+  [btnFullscreen, btnFullscreenFab].forEach((btn) => {
+    if(!btn) return;
+    btn.addEventListener('click', (e) => { e.stopPropagation(); toggleFullscreen(); });
+  });
   // 화면 빈 영역 더블클릭으로도 풀스크린 토글 (버튼/카드 등 인터랙티브 요소는 제외)
   appEl.addEventListener('dblclick', (e) => {
     if(e.target.closest('button, .ox-btn, .reveal-btn, .toc-item, input, a')) return;
@@ -2322,7 +2593,21 @@ addSlide('마치며', `
     }
   }, {passive:true});
 
+  // 모바일 전체화면 발표 중에는 좌/우 가장자리 탭으로 이전/다음 이동 가능
+  appEl.addEventListener('click', (e) => {
+    if(!window.matchMedia('(max-width: 768px)').matches) return;
+    if(e.target.closest('button, .ox-btn, .reveal-btn, .toc-item, input, a, .nav-bar, .fullscreen-fab')) return;
+    const x = e.clientX;
+    const w = window.innerWidth;
+    if(x < w * 0.16) prev();
+    else if(x > w * 0.84) next();
+  });
+
   render();
+  window.addEventListener('resize', () => {
+    const activeSlide = appEl.querySelector('.slide.active');
+    if(activeSlide) requestAnimationFrame(() => fitActive(activeSlide));
+  });
 
   // 첫 진입 스와이프 힌트
   setTimeout(() => {
